@@ -1,5 +1,5 @@
 {
-  "irVersion": 1,
+  "irVersion": 2,
   "semantics": "tynel.shared-core/0.1",
   "package": "main",
   "functions": [

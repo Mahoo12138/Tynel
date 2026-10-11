@@ -26,7 +26,7 @@ if (-not (Test-Path $compiler) -or -not (Test-Path $identityFile)) { throw 'Run 
 $identity = Get-Content -Raw $identityFile | ConvertFrom-Json
 Assert-TynelBridgeFresh -Root $root -Identity $identity
 $lock = Get-Content -Raw 'toolchain.lock.json' | ConvertFrom-Json
-if ($identity.goVersion -ne $lock.go.version -or $identity.bridgeABI -ne $lock.bridgeABI) { throw 'Bridge identity mismatch; rebuild.' }
+if ($identity.goVersion -ne $lock.go.version -or $identity.bridgeABI -ne $lock.bridgeABI -or $identity.irVersion -ne $lock.irVersion -or $identity.supportABI -ne $lock.supportABI -or $identity.supportAnchor -ne $lock.supportAnchor) { throw 'Bridge/support identity mismatch; rebuild.' }
 $go = Join-Path $identity.goroot 'bin/go.exe'
 $env:GOROOT = $identity.goroot
 $env:GOTOOLCHAIN = 'local'

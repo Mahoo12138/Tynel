@@ -1,16 +1,17 @@
 {
   "schemaVersion": 3,
-  "tag": "stage/01-ir-native",
-  "parentTag": null,
-  "chapter": 1,
-  "note": "docs/notes/01-from-ir-to-native.md",
-  "scope": "NIR v1 scalar backend; handwritten input; no TypeScript frontend",
+  "tag": "stage/02-tsgo-query",
+  "parentTag": "stage/01-ir-native",
+  "chapter": 2,
+  "note": "docs/notes/02-tsgo-facade-and-type-facts.md",
+  "scope": "Query-only tsgo frontend and fixed GC/ABI probes; no source lowering",
   "validation": {
     "script": "scripts/replay.ps1",
-    "frontend": false,
+    "frontend": true,
     "record": "docs/replay-validation.md"
   },
   "expected": {
-    "dist/add.exe": "42\n"
+    "dist/add.exe": "42\n",
+    "gcProbe": "42\n7\n43\n"
   }
 }

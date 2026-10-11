@@ -33,8 +33,8 @@ func Load(path string) error {
 	for _, fn := range typecheck.Target.Funcs {
 		b.functions[fn.Sym().Name] = fn
 	}
-	if b.functions["main"] == nil || b.functions["tynelF64"] == nil || b.functions["tynelPrint"] == nil {
-		return fmt.Errorf("missing handwritten bootstrap functions")
+	if err := b.checkHost(); err != nil {
+		return err
 	}
 	for i := range m.Functions {
 		fn := &m.Functions[i]
@@ -47,11 +47,11 @@ func Load(path string) error {
 		pos := b.pos(fn.Loc)
 		params := make([]*types.Field, len(fn.Params))
 		for j, p := range fn.Params {
-			params[j] = types.NewField(pos, types.LocalPkg.Lookup(p.Name), types.Types[types.TFLOAT64])
+			params[j] = types.NewField(pos, types.LocalPkg.Lookup(p.Name), b.storage(p.Type))
 		}
 		var results []*types.Field
-		if fn.Result == nir.Number {
-			results = []*types.Field{types.NewField(pos, nil, types.Types[types.TFLOAT64])}
+		if fn.Result != nir.Void {
+			results = []*types.Field{types.NewField(pos, nil, b.storage(fn.Result))}
 		}
 		sym := types.LocalPkg.Lookup(fn.Name)
 		g := ir.NewFunc(pos, pos, sym, types.NewSignature(nil, params, results))
@@ -71,10 +71,37 @@ func Load(path string) error {
 			params[p.Name] = g.Type().Params()[j].Nname.(*ir.Name)
 		}
 		g.Body = nil
+		// A parsed zero-parameter main can have no declarations yet.
+		if g.Dcl == nil {
+			g.Dcl = make([]*ir.Name, 0)
+		}
+		if fn.Name == "main" {
+			g.Body = append(g.Body, typecheck.Stmt(b.host(b.pos(fn.Loc), "tynelProbeABI_v1")))
+		}
 		for _, s := range fn.Body {
 			pos := b.pos(s.Loc)
 			var node ir.Node
 			switch s.Op {
+			case "let":
+				rhs := b.expr(s.Value, params)
+				name := g.NewLocal(pos, &types.Sym{Name: s.Name, Pkg: types.LocalPkg}, b.storage(s.Value.Type))
+				params[s.Name] = name
+				g.Body = append(g.Body, typecheck.Stmt(ir.NewDecl(pos, ir.ODCL, name)))
+				node = ir.NewAssignStmt(pos, name, rhs)
+				name.Defn = node
+			case "probe_store_value", "probe_store_next":
+				index := 0
+				if s.Op == "probe_store_next" {
+					index = 1
+				}
+				lhs := typecheck.DotField(pos, b.expr(s.Target, params), index)
+				node = ir.NewAssignStmt(pos, lhs, b.expr(s.Value, params))
+			case "probe_gc":
+				node = b.host(pos, "tynelProbeGC")
+			case "probe_stack":
+				node = b.host(pos, "tynelProbeStack")
+			case "probe_assert_same":
+				node = b.host(pos, "tynelProbeAssertSame", b.expr(s.Target, params), b.expr(s.Value, params))
 			case "return":
 				var values []ir.Node
 				if s.Value != nil {
@@ -99,6 +126,7 @@ func Load(path string) error {
 }
 
 type builder struct {
+	probeRef  *types.Type
 	functions map[string]*ir.Func
 	files     map[string]*src.PosBase
 }
@@ -123,8 +151,17 @@ func (b *builder) expr(e *nir.Expr, params map[string]*ir.Name) ir.Node {
 		}
 		u := ir.NewBasicLit(pos, types.Types[types.TUINT64], constant.MakeUint64(bits))
 		node = ir.NewCallExpr(pos, ir.OCALL, b.functions["tynelF64"].Nname, []ir.Node{u})
-	case "param":
+	case "param", "local":
 		return params[e.Name]
+	case "probe_new":
+		// Normal typed new: escape analysis and Go's allocator lowering remain active.
+		node = ir.NewUnaryExpr(pos, ir.ONEW, ir.TypeNode(b.probeRef.Elem()))
+	case "probe_value", "probe_next":
+		index := 0
+		if e.Op == "probe_next" {
+			index = 1
+		}
+		return typecheck.DotField(pos, b.expr(e.Args[0], params), index)
 	case "add", "sub", "mul", "div":
 		op := map[string]ir.Op{"add": ir.OADD, "sub": ir.OSUB, "mul": ir.OMUL, "div": ir.ODIV}[e.Op]
 		node = ir.NewBinaryExpr(pos, op, b.expr(e.Args[0], params), b.expr(e.Args[1], params))

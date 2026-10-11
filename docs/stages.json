@@ -7,6 +7,13 @@
       "chapter": 1,
       "note": "docs/notes/01-from-ir-to-native.md",
       "frontend": false
+    },
+    {
+      "tag": "stage/02-tsgo-query",
+      "parentTag": "stage/01-ir-native",
+      "chapter": 2,
+      "note": "docs/notes/02-tsgo-facade-and-type-facts.md",
+      "frontend": true
     }
   ]
 }

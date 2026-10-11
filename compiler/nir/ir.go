@@ -1,7 +1,9 @@
 // Package nir defines Tynel's versioned, backend-independent research IR.
 package nir
 
-const Version = 1
+// Version 2 adds explicitly gated GC-probe references and local bindings.
+const Version = 2
+const ProbeGCFeature = "probe.gc/1"
 const Semantics = "tynel.shared-core/0.1"
 
 // Type is a semantic type, not a Go storage layout.
@@ -10,6 +12,8 @@ type Type string
 const (
 	Number Type = "number"
 	Void   Type = "void"
+	// ProbeRef is a nullable pointer to the fixed experimental node, not a TS object.
+	ProbeRef Type = "probe_ref"
 )
 
 type Span struct {
@@ -22,6 +26,7 @@ type Module struct {
 	IRVersion int        `json:"irVersion"`
 	Semantics string     `json:"semantics"`
 	Package   string     `json:"package"`
+	Features  []string   `json:"features,omitempty"`
 	Functions []Function `json:"functions"`
 }
 
@@ -50,7 +55,9 @@ type Expr struct {
 }
 
 type Stmt struct {
-	Op    string `json:"op"`
-	Value *Expr  `json:"value,omitempty"`
-	Loc   Span   `json:"loc"`
+	Name   string `json:"name,omitempty"`
+	Target *Expr  `json:"target,omitempty"`
+	Op     string `json:"op"`
+	Value  *Expr  `json:"value,omitempty"`
+	Loc    Span   `json:"loc"`
 }

@@ -14,18 +14,32 @@
   },
   "typescript": {
     "repository": "https://github.com/microsoft/TypeScript.git",
-    "commit": null,
-    "status": "not-integrated"
+    "ref": "v7.0.2",
+    "commit": "1e4744d68260a7cb91b62b12edc3f6a2187faaf1",
+    "modulePath": "github.com/microsoft/typescript-go",
+    "moduleDirectory": "tsc",
+    "goVersion": "go1.26.7",
+    "archiveSHA256": "be1332d444bf5fcd8ed78f36ceefa2885ef0fba104af0bfe083e15336830b07b",
+    "selectedTreeSHA256": "0f1cfd9e8d6f65d6b6987cbd9d93e1f1047c8e873cc1cf0f80f7d9636be913bf",
+    "selectedFiles": 5262,
+    "goModSHA256": "8b2c958ea48d9e64a9f2cc960625085e6f220c6679570db78db9cf5114c368c2",
+    "goSumSHA256": "f56e1eb56cc1f61c3801f862a4afa26f4b43295436eb405228bedb0f7e707468",
+    "declarationSHA256": "cc8c01e8b9425095f7e7314fbe91255122b1e7e484b7854eb1c545464900c9b4",
+    "declarationFiles": 108,
+    "facadeProtocol": "tynel.tsgo-probe/1",
+    "status": "pinned-query-only-replay"
   },
   "scriptcStudy": {
     "version": "v0.2.7",
     "commit": "9131a3498c877e3a6b8e24a95f1bedf4d031fc5d",
     "role": "design-reference-only"
   },
-  "irVersion": 1,
+  "irVersion": 2,
   "semantics": "tynel.shared-core/0.1",
-  "bridgeABI": "tynel.go-probe/1",
+  "bridgeABI": "tynel.go-probe/2",
   "testedTargets": [
     "windows/amd64"
-  ]
+  ],
+  "supportABI": "tynel.probesupport/1",
+  "supportAnchor": "tynelProbeABI_v1"
 }

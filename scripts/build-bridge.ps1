@@ -39,7 +39,9 @@ $main = Join-Path $stage 'main.go'
 $replace = @{}
 $replace[$src] = $main
 $replace[(Join-Path $goroot 'src/cmd/compile/internal/gc/tynel_hook.go')] = (Join-Path $root 'bridge/go/gc_hook.go')
-$replace[(Join-Path $goroot 'src/cmd/compile/internal/tynelbridge/load.go')] = (Join-Path $root 'bridge/go/load.go')
+Get-ChildItem -LiteralPath (Join-Path $root 'bridge/go') -Filter '*.go' -File | Where-Object { $_.Name -ne 'gc_hook.go' -and $_.Name -notlike '*_test.go' } | ForEach-Object {
+  $replace[(Join-Path $goroot ('src/cmd/compile/internal/tynelbridge/' + $_.Name))] = $_.FullName
+}
 Get-ChildItem -LiteralPath (Join-Path $root 'compiler/nir') -Filter '*.go' | Where-Object { $_.Name -notlike '*_test.go' } | ForEach-Object {
   $replace[(Join-Path $goroot ('src/cmd/compile/internal/tynelbridge/nir/' + $_.Name))] = $_.FullName
 }
@@ -48,7 +50,7 @@ $overlay = Join-Path $stage 'overlay.json'
 $out = Join-Path $root '.tynel/bin/tynel-compile.exe'
 & $go build -overlay $overlay -o $out cmd/compile
 if ($LASTEXITCODE -ne 0) { throw "Compiler fork build failed: $LASTEXITCODE" }
-$identity = @{ goVersion = $lock.go.version; goroot = $goroot; gcMainSHA256 = $hash; bridgeABI = $lock.bridgeABI; compilerSHA256 = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant(); sourceHashes = (Get-TynelBridgeSourceHashes -Root $root) }
+$identity = @{ goVersion = $lock.go.version; goroot = $goroot; gcMainSHA256 = $hash; bridgeABI = $lock.bridgeABI; irVersion = $lock.irVersion; supportABI = $lock.supportABI; supportAnchor = $lock.supportAnchor; compilerSHA256 = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant(); sourceHashes = (Get-TynelBridgeSourceHashes -Root $root) }
 [IO.File]::WriteAllText((Join-Path $stage 'identity.json'), ($identity | ConvertTo-Json -Depth 6), $utf8)
 Write-Output "Built compiler fork: $out"
 Write-Output 'Host GOROOT source and executables were not modified.'

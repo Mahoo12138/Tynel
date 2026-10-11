@@ -1,9 +1,9 @@
 function Get-TynelBridgeSourceHashes {
   param([Parameter(Mandatory=$true)][string]$Root)
-  $paths = @('toolchain.lock.json', 'scripts/build-bridge.ps1', 'scripts/bridge-common.ps1')
-  foreach ($dir in @('compiler/nir', 'bridge/go')) {
-    foreach ($file in (Get-ChildItem -LiteralPath (Join-Path $Root $dir) -Filter '*.go' | Where-Object { $_.Name -notlike '*_test.go' })) {
-      $paths += $dir + '/' + $file.Name
+  $paths = @('toolchain.lock.json', 'scripts/build-bridge.ps1', 'scripts/bridge-common.ps1', 'experiments/bootstrap/go.mod')
+  foreach ($dir in @('compiler/nir', 'bridge/go', 'experiments/bootstrap')) {
+    foreach ($file in (Get-ChildItem -LiteralPath (Join-Path $Root $dir) -Recurse -File -Filter '*.go' | Where-Object { $_.Name -notlike '*_test.go' })) {
+      $paths += [IO.Path]::GetRelativePath($Root, $file.FullName).Replace('\', '/')
     }
   }
   $hashes = [ordered]@{}
