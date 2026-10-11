@@ -15,3 +15,6 @@ func tynelF64(bits uint64) float64 { return math.Float64frombits(bits) }
 
 // This probe printer is not a claim of JavaScript console.log compatibility.
 func tynelPrint(value float64) { fmt.Println(value) }
+
+// Typed observation of booleans; not an arbitrary object/console formatter.
+func tynelPrintBool(value bool) { fmt.Println(value) }

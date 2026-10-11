@@ -1,8 +1,8 @@
 // Package nir defines Tynel's versioned, backend-independent research IR.
 package nir
 
-// Version 2 adds explicitly gated GC-probe references and local bindings.
-const Version = 2
+// Version 3 adds booleans and scoped, structured if/block statements.
+const Version = 3
 const ProbeGCFeature = "probe.gc/1"
 const Semantics = "tynel.shared-core/0.1"
 
@@ -10,8 +10,9 @@ const Semantics = "tynel.shared-core/0.1"
 type Type string
 
 const (
-	Number Type = "number"
-	Void   Type = "void"
+	Number  Type = "number"
+	Boolean Type = "boolean"
+	Void    Type = "void"
 	// ProbeRef is a nullable pointer to the fixed experimental node, not a TS object.
 	ProbeRef Type = "probe_ref"
 )
@@ -46,18 +47,24 @@ type Param struct {
 // Expr uses IDs/names and data only: checker pointers must not cross this seam.
 // Numbers use exactly 16 lowercase hexadecimal digits of IEEE-754 binary64 bits.
 type Expr struct {
-	Op   string  `json:"op"`
-	Type Type    `json:"type"`
-	Bits string  `json:"bits,omitempty"`
+	Op   string `json:"op"`
+	Type Type   `json:"type"`
+	Bits string `json:"bits,omitempty"`
+	// A pointer distinguishes false from a missing boolean literal.
+	Bool *bool   `json:"bool,omitempty"`
 	Name string  `json:"name,omitempty"`
 	Args []*Expr `json:"args,omitempty"`
 	Loc  Span    `json:"loc"`
 }
 
 type Stmt struct {
-	Name   string `json:"name,omitempty"`
-	Target *Expr  `json:"target,omitempty"`
-	Op     string `json:"op"`
-	Value  *Expr  `json:"value,omitempty"`
-	Loc    Span   `json:"loc"`
+	Name      string `json:"name,omitempty"`
+	Target    *Expr  `json:"target,omitempty"`
+	Op        string `json:"op"`
+	Value     *Expr  `json:"value,omitempty"`
+	Condition *Expr  `json:"condition,omitempty"`
+	Then      []Stmt `json:"then,omitempty"`
+	Else      []Stmt `json:"else,omitempty"`
+	Body      []Stmt `json:"body,omitempty"`
+	Loc       Span   `json:"loc"`
 }

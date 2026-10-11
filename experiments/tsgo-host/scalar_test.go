@@ -64,6 +64,7 @@ func TestScalarFactsAndReplayAfterClose(t *testing.T) {
 }
 func TestScalarAcceptedForms(t *testing.T) {
 	for name, source := range map[string]string{
+		"branch":          "function f(x:number):number{if(x>0)return x;return 0;} console.log(f(1));",
 		"numeric-radices": "console.log(0x2a + 0b10 + 0o10 + 1_000);",
 		"unary":           "function neg(x:number):number{return -x;} console.log(1 / neg(0));",
 		"same-spelling":   "function a(x:number):number{return x;} function b(x:number):number{return x+1;} const x=2; console.log(a(x)+b(x));",
@@ -84,7 +85,7 @@ func TestScalarRejectsUnsupportedWithoutArtifact(t *testing.T) {
 	for name, source := range map[string]string{
 		"mutable":             "let x=1; console.log(x);",
 		"loop":                "for(let i=0;i<1;i++)console.log(i);",
-		"branch":              "function f(x:number):number{if(x>0)return x;return 0;} console.log(f(1));",
+		"numeric-truthiness":  "function f(x:number):number{if(x)return x;return 0;} console.log(f(1));",
 		"object":              "const x={value:42}; console.log(x.value);",
 		"closure":             "function f(x:number):number{function g():number{return x;}return g();}",
 		"top-capture":         "const x=42; function f():number{return x;} console.log(f());",

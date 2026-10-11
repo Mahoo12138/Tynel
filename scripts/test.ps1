@@ -51,6 +51,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Go source comparison tests failed.' }
   & python -X utf8 (Join-Path $PSScriptRoot 'check-stage.py')
   if ($LASTEXITCODE -ne 0) { throw 'Stage metadata or document links failed.' }
+  & python -X utf8 (Join-Path $PSScriptRoot 'test-check-stage.py')
+  if ($LASTEXITCODE -ne 0) { throw 'Stage metadata tests failed.' }
 
   & $go test ./... -count=1
   if ($LASTEXITCODE -ne 0) { throw 'Go unit tests failed.' }
@@ -77,6 +79,8 @@ try {
     & (Join-Path $PSScriptRoot 'build-tsgo-probe.ps1') -Test
     & python -X utf8 (Join-Path $PSScriptRoot 'smoke-ts.py')
     if ($LASTEXITCODE -ne 0) { throw 'TypeScript-to-native scalar regression failed.' }
+    & python -X utf8 (Join-Path $PSScriptRoot 'smoke-control.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Boolean/control-flow native regression failed.' }
   } else { Write-Output 'Frontend probe not requested; use -WithFrontend after prepare-tsgo.py.' }
   Write-Output 'Tynel regression passed.'
 } finally {

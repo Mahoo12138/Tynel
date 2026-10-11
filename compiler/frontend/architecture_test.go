@@ -32,7 +32,7 @@ func TestFrontendContractHasNoUpstreamHandles(t *testing.T) {
 			}
 		case reflect.Pointer, reflect.Slice:
 			walk(typ.Elem())
-		case reflect.String, reflect.Int:
+		case reflect.String, reflect.Int, reflect.Bool:
 		default:
 			t.Fatalf("not a plain data field: %v", typ)
 		}

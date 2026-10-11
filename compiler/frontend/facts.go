@@ -4,8 +4,8 @@ package frontend
 
 import "fmt"
 
-const Version = 1
-const Profile = "tynel.scalar/1"
+const Version = 2
+const Profile = "tynel.scalar/2"
 
 type Span struct {
 	File      string `json:"file"`
@@ -36,15 +36,20 @@ type Expression struct {
 	Type string        `json:"type"`
 	Ref  string        `json:"ref,omitempty"`
 	Bits string        `json:"bits,omitempty"`
+	Bool *bool         `json:"bool,omitempty"`
 	Args []*Expression `json:"args,omitempty"`
 	Loc  Span          `json:"loc"`
 }
 
 type Statement struct {
-	Op      string      `json:"op"`
-	Binding *Binding    `json:"binding,omitempty"`
-	Value   *Expression `json:"value"`
-	Loc     Span        `json:"loc"`
+	Op        string      `json:"op"`
+	Binding   *Binding    `json:"binding,omitempty"`
+	Value     *Expression `json:"value"`
+	Condition *Expression `json:"condition,omitempty"`
+	Then      []Statement `json:"then,omitempty"`
+	Else      []Statement `json:"else,omitempty"`
+	Body      []Statement `json:"body,omitempty"`
+	Loc       Span        `json:"loc"`
 }
 
 type Program struct {

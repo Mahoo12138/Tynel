@@ -22,6 +22,12 @@ Tynel 是学习型 TypeScript-to-native 编译器。长期主线是 tsgo -> Nati
 
 单文件不可变会话使用上游 ES5 声明、Strict/NoEmit/SkipLibCheck，不自动访问磁盘项目或支持 npm。Display 和 NodeKind 仍是研究显示信息；新增 scalar 投影读取真实类型分类、声明身份与调用签名，返回 `compiler/frontend` 的自有数据。会话关闭后由独立 Lower 验证并生成 NIR。源编译由 `scripts/compile-ts.ps1` 组织，主 CLI 尚未接线。基础会话见 [ADR-014](adr/014-tsgo-facade-baseline.md)，数值切片见 [ADR-015](adr/015-scalar-source-to-native.md)。
 
+## 布尔与结构化控制流
+
+NIR v3 / facts v2 支持 number、boolean 及带独立 Then/Else 的 if。条件只求值一次，分支中的临时值和调用不提升到外层；块与分支复制编译期绑定表，局部声明不向外泄露。sequence 同时计算结构上的全路径返回信息。Go bridge 使用 TBOOL、原始数值比较和 `ir.NewIfStmt`，由 Go 继续生成 CFG/SSA。未引入短路运算、可变绑定或自己的 SSA。
+
+详见 [ADR-016](adr/016-boolean-control-flow.md)；主编译入口仍为脚本，旧协议明确拒绝，历史文章保持其版本范围。
+
 ## 学自 scriptc，但不复制它的 runtime
 
 - 独立 typed IR、源码位置、类型降低边界和验证器。
@@ -36,4 +42,4 @@ Tynel 是学习型 TypeScript-to-native 编译器。长期主线是 tsgo -> Nati
 
 ## 下一阶段
 
-IR->原生、输入变更使缓存失效、非法 IR 被编译器拒绝及特殊浮点 smoke 已实际通过，证据见 [开发记录](progress.md)。使用 `scripts/test.ps1` 可重跑当前完整原型回归。固定对象的分配/GC 与辅助 ABI 锚点原型已有独立回归。上游 commit 与独立 tsgo facade 已形成前置探针；数值 TypeFacts/约束与 TS→NIR 已形成受限连接；下一步扩展布尔比较与分支，并继续补 Go SDK 全树来源、通用前端事实和未覆盖的运行时契约。包括前端的验证使用 `scripts/test.ps1 -WithFrontend`；具体结果见 [本轮进展](progress-t14-t16.md)。不要用正则表达式解析 TS，也不要用源码转译替代接缝。
+IR->原生、输入变更使缓存失效、非法 IR 被编译器拒绝及特殊浮点 smoke 已实际通过，证据见 [开发记录](progress.md)。使用 `scripts/test.ps1` 可重跑当前完整原型回归。固定对象的分配/GC 与辅助 ABI 锚点原型已有独立回归。上游 commit 与独立 tsgo facade 已形成前置探针；数值 TypeFacts/约束与 TS→NIR 已形成受限连接；布尔比较与结构化分支现已接入；下一步研究短路表达式与值的条件选择，并继续补 Go SDK 全树来源、通用前端事实和未覆盖的运行时契约。包括前端的验证使用 `scripts/test.ps1 -WithFrontend`；具体结果见 [本轮进展](progress-t14-t16.md)。不要用正则表达式解析 TS，也不要用源码转译替代接缝。

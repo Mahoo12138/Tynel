@@ -11,6 +11,7 @@
 | 词条 | 一句话解释 | 详情 |
 |---|---|---|
 | commit / tag / worktree | 已提交快照、它的稳定名字、独立实验目录 | [版本与复现](#versions) |
+| boolean / truthiness / CFG / 词法作用域 | 条件值、条件转换、可能执行的路径、名称可见范围 | [条件与控制流](#control-flow) |
 | probe / smoke / fixture / assertion | 小实验、关键路径检查、测试输入、结果断言 | [实验术语](#probes) |
 | GC / root / heap / alias | 垃圾回收、追踪起点、堆、同对象的多个引用 | [内存与对象](#gc) |
 | 栈帧 / 写屏障 | 调用的工作空间、指针写入与 GC 的配合 | [栈与屏障](#stack-barrier) |
@@ -20,6 +21,15 @@
 | ADR | 保存决定的背景、选择、后果 | [决策记录](#adr) |
 | T09 / M1 / P0 | 任务、里程碑、关键路径优先级 | [任务编号](#t09) |
 | NIR v2 / TY4002 / support ABI | 文件格式、诊断类别、辅助库契约，各自独立 | [编号辨析](#identifiers) |
+
+<a id="control-flow"></a>
+## 条件与控制流
+
+boolean 是 true/false 两种值的类型；truthiness 是其他类型的值按某套规则转换为条件的过程。两者不同。Tynel 的 `stage/04-control-flow` 只接受 boolean 条件，不接受 `if (number)` 或 `!number`。
+
+CFG（Control Flow Graph，控制流图）记录执行可以从哪个位置转向哪个位置。基本块描述连续的低层执行片段；源码 `{ ... }` 的词法块限制名称可见范围，二者不一一对应。分支内变量只在该范围可见，与运行时数据是否复制没有必然关系。
+
+“所有路径返回”是在问每条能走到的函数出口是否都有结果，不是计数 return。当前结构检查不利用常量条件排除分支。具体问题、实例与实现见 [笔记 04](../notes/04-control-flow.md) 和 [ADR-016](../adr/016-boolean-control-flow.md)。这张表随阶段保存，不另建标签。
 
 <a id="versions"></a>
 ## 版本与复现：commit、tag、worktree

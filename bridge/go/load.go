@@ -78,43 +78,7 @@ func Load(path string) error {
 		if fn.Name == "main" {
 			g.Body = append(g.Body, typecheck.Stmt(b.host(b.pos(fn.Loc), "tynelProbeABI_v1")))
 		}
-		for _, s := range fn.Body {
-			pos := b.pos(s.Loc)
-			var node ir.Node
-			switch s.Op {
-			case "let":
-				rhs := b.expr(s.Value, params)
-				name := g.NewLocal(pos, &types.Sym{Name: s.Name, Pkg: types.LocalPkg}, b.storage(s.Value.Type))
-				params[s.Name] = name
-				g.Body = append(g.Body, typecheck.Stmt(ir.NewDecl(pos, ir.ODCL, name)))
-				node = ir.NewAssignStmt(pos, name, rhs)
-				name.Defn = node
-			case "probe_store_value", "probe_store_next":
-				index := 0
-				if s.Op == "probe_store_next" {
-					index = 1
-				}
-				lhs := typecheck.DotField(pos, b.expr(s.Target, params), index)
-				node = ir.NewAssignStmt(pos, lhs, b.expr(s.Value, params))
-			case "probe_gc":
-				node = b.host(pos, "tynelProbeGC")
-			case "probe_stack":
-				node = b.host(pos, "tynelProbeStack")
-			case "probe_assert_same":
-				node = b.host(pos, "tynelProbeAssertSame", b.expr(s.Target, params), b.expr(s.Value, params))
-			case "return":
-				var values []ir.Node
-				if s.Value != nil {
-					values = []ir.Node{b.expr(s.Value, params)}
-				}
-				node = ir.NewReturnStmt(pos, values)
-			case "print_number":
-				node = ir.NewCallExpr(pos, ir.OCALL, b.functions["tynelPrint"].Nname, []ir.Node{b.expr(s.Value, params)})
-			default:
-				panic("validated statement missing in bridge")
-			}
-			g.Body = append(g.Body, typecheck.Stmt(node))
-		}
+		g.Body = append(g.Body, b.statements(fn.Body, g, params)...)
 		// nil Body denotes an external declaration to the Go backend, not
 		// an empty function. Materialize void fallthrough explicitly.
 		if fn.Result == nir.Void && (len(fn.Body) == 0 || fn.Body[len(fn.Body)-1].Op != "return") {
@@ -144,6 +108,14 @@ func (b *builder) expr(e *nir.Expr, params map[string]*ir.Name) ir.Node {
 	pos := b.pos(e.Loc)
 	var node ir.Node
 	switch e.Op {
+	case "bool":
+		node = ir.NewBasicLit(pos, types.Types[types.TBOOL], constant.MakeBool(*e.Bool))
+	case "not":
+		node = ir.NewUnaryExpr(pos, ir.ONOT, b.expr(e.Args[0], params))
+	case "lt", "le", "gt", "ge", "eq", "ne":
+		op := map[string]ir.Op{"lt": ir.OLT, "le": ir.OLE, "gt": ir.OGT, "ge": ir.OGE, "eq": ir.OEQ, "ne": ir.ONE}[e.Op]
+		// Keep NaN-aware comparisons as comparisons, not negated opposites.
+		node = ir.NewBinaryExpr(pos, op, b.expr(e.Args[0], params), b.expr(e.Args[1], params))
 	case "number":
 		bits, err := strconv.ParseUint(e.Bits, 16, 64)
 		if err != nil {

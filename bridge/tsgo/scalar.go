@@ -51,13 +51,13 @@ func (s *Session) ScalarFacts(filename string) (*frontend.Program, error) {
 		for j, arg := range n.AsFunctionDeclaration().Parameters.Nodes {
 			env[c.GetSymbolAtLocation(arg.Name())] = f.Params[j].ID
 		}
-		body, err := e.statements(n.AsFunctionDeclaration().Body.AsBlock().Statements.Nodes, env, false)
+		body, err := e.statements(n.AsFunctionDeclaration().Body.AsBlock().Statements.Nodes, env, false, 0)
 		if err != nil {
 			return nil, err
 		}
 		f.Body = body
 	}
-	body, err := e.statements(s.file.Statements.Nodes, map[*ast.Symbol]string{}, true)
+	body, err := e.statements(s.file.Statements.Nodes, map[*ast.Symbol]string{}, true, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +93,12 @@ func (e *extractor) count(n *ast.Node, depth int) error {
 func numeric(t *checker.Type) bool {
 	return t != nil && (t.Flags() == checker.TypeFlagsNumber || t.Flags() == checker.TypeFlagsNumberLiteral)
 }
-func (e *extractor) number(n *ast.Node) error {
-	if !numeric(e.c.GetTypeAtLocation(n)) {
-		return e.fail(n, "scalar/1 requires a checked number (not any, union, enum or object)")
+func (e *extractor) scalar(n *ast.Node) (string, error) {
+	t := scalarKind(e.c.GetTypeAtLocation(n))
+	if t == "" {
+		return "", e.fail(n, "scalar/2 requires a checked number or boolean (not any, heterogeneous union, enum or object)")
 	}
-	return nil
+	return t, nil
 }
 func hasModifiers(n *ast.Node) bool { return n.Modifiers() != nil && len(n.Modifiers().Nodes) != 0 }
 func (e *extractor) binding(n *ast.Node) (frontend.Binding, error) {
@@ -108,33 +109,34 @@ func (e *extractor) binding(n *ast.Node) (frontend.Binding, error) {
 	if sym == nil || len(sym.Declarations) != 1 {
 		return frontend.Binding{}, e.fail(n, "ambiguous or merged declaration")
 	}
-	if err := e.number(n); err != nil {
+	typ, err := e.scalar(n)
+	if err != nil {
 		return frontend.Binding{}, err
 	}
 	e.serial++
-	return frontend.Binding{ID: fmt.Sprintf("v%d", e.serial), Name: n.Text(), Type: "number", Loc: e.loc(n)}, nil
+	return frontend.Binding{ID: fmt.Sprintf("v%d", e.serial), Name: n.Text(), Type: typ, Loc: e.loc(n)}, nil
 }
 func (e *extractor) signature(n *ast.Node) (frontend.Function, error) {
 	f := n.AsFunctionDeclaration()
-	if hasModifiers(n) || f.AsteriskToken != nil || f.TypeParameters != nil || f.FullSignature != nil || f.Body == nil || f.Body.Kind != ast.KindBlock || n.Name() == nil || n.Name().Kind != ast.KindIdentifier || f.Type == nil || f.Type.Kind != ast.KindNumberKeyword {
-		return frontend.Function{}, e.fail(n, "only plain functions with an explicit number result are supported; no async, generator, generic, export or overload")
+	if hasModifiers(n) || f.AsteriskToken != nil || f.TypeParameters != nil || f.FullSignature != nil || f.Body == nil || f.Body.Kind != ast.KindBlock || n.Name() == nil || n.Name().Kind != ast.KindIdentifier || f.Type == nil || !scalarAnnotation(f.Type) {
+		return frontend.Function{}, e.fail(n, "only plain functions with an explicit number/boolean result are supported; no async, generator, generic, export or overload")
 	}
 	sym := e.c.GetSymbolAtLocation(n.Name())
 	if sym == nil || len(sym.Declarations) != 1 || e.functions[sym].ID != "" {
 		return frontend.Function{}, e.fail(n, "duplicate or ambiguous function")
 	}
 	sig := e.c.GetSignatureFromDeclaration(n)
-	if sig == nil || !numeric(e.c.GetReturnTypeOfSignature(sig)) {
-		return frontend.Function{}, e.fail(n, "function result signature is not number")
+	if sig == nil || scalarKind(e.c.GetReturnTypeOfSignature(sig)) == "" {
+		return frontend.Function{}, e.fail(n, "function result signature is not scalar")
 	}
-	out := frontend.Function{ID: fmt.Sprintf("f%d", len(e.functions)), Name: n.Name().Text(), Result: "number", Loc: e.loc(n)}
+	out := frontend.Function{ID: fmt.Sprintf("f%d", len(e.functions)), Name: n.Name().Text(), Result: scalarKind(e.c.GetReturnTypeOfSignature(sig)), Loc: e.loc(n)}
 	if len(f.Parameters.Nodes) > 32 || len(e.functions) >= nir.MaxFunctions-1 {
 		return out, e.fail(n, "function/parameter budget exceeded")
 	}
 	for _, pn := range f.Parameters.Nodes {
 		p := pn.AsParameterDeclaration()
-		if hasModifiers(pn) || p.DotDotDotToken != nil || p.QuestionToken != nil || p.Initializer != nil || p.Type == nil || p.Type.Kind != ast.KindNumberKeyword || pn.Name().Kind != ast.KindIdentifier || pn.Name().Text() == "this" {
-			return out, e.fail(pn, "parameters must be required number identifiers without defaults or rest")
+		if hasModifiers(pn) || p.DotDotDotToken != nil || p.QuestionToken != nil || p.Initializer != nil || p.Type == nil || !scalarAnnotation(p.Type) || pn.Name().Kind != ast.KindIdentifier || pn.Name().Text() == "this" {
+			return out, e.fail(pn, "parameters must be required number/boolean identifiers without defaults or rest")
 		}
 		b, err := e.binding(pn.Name())
 		if err != nil {
@@ -145,19 +147,48 @@ func (e *extractor) signature(n *ast.Node) (frontend.Function, error) {
 	e.functions[sym], e.declarations[out.ID] = out, n
 	return out, nil
 }
-func (e *extractor) statements(nodes []*ast.Node, env map[*ast.Symbol]string, top bool) ([]frontend.Statement, error) {
+func (e *extractor) statements(nodes []*ast.Node, env map[*ast.Symbol]string, top bool, depth int) ([]frontend.Statement, error) {
 	var out []frontend.Statement
 	for _, n := range nodes {
-		if err := e.count(n, 0); err != nil {
+		if err := e.count(n, depth); err != nil {
 			return nil, err
 		}
 		s := frontend.Statement{Loc: e.loc(n)}
 		switch n.Kind {
 		case ast.KindFunctionDeclaration:
-			if top {
+			if top && depth == 0 {
 				continue
 			}
 			return nil, e.fail(n, "nested functions and closures are not supported")
+		case ast.KindEmptyStatement:
+			continue
+		case ast.KindBlock:
+			body, err := e.branch(n, env, top, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			s.Op, s.Body = "block", body
+		case ast.KindIfStatement:
+			branch := n.AsIfStatement()
+			condition, err := e.expr(branch.Expression, env, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			if condition.Type != "boolean" {
+				return nil, e.fail(branch.Expression, "if condition must be boolean; implicit truthiness is not supported")
+			}
+			yes, err := e.branch(branch.ThenStatement, env, top, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			var no []frontend.Statement
+			if branch.ElseStatement != nil {
+				no, err = e.branch(branch.ElseStatement, env, top, depth+1)
+				if err != nil {
+					return nil, err
+				}
+			}
+			s.Op, s.Condition, s.Then, s.Else = "if", condition, yes, no
 		case ast.KindVariableStatement:
 			v := n.AsVariableStatement()
 			list := v.DeclarationList.AsVariableDeclarationList()
@@ -166,10 +197,10 @@ func (e *extractor) statements(nodes []*ast.Node, env map[*ast.Symbol]string, to
 			}
 			for _, dn := range list.Declarations.Nodes {
 				d := dn.AsVariableDeclaration()
-				if dn.Name().Kind != ast.KindIdentifier || d.Initializer == nil || d.ExclamationToken != nil || (d.Type != nil && d.Type.Kind != ast.KindNumberKeyword) {
-					return nil, e.fail(dn, "const requires an identifier, numeric initializer and optional number annotation")
+				if dn.Name().Kind != ast.KindIdentifier || d.Initializer == nil || d.ExclamationToken != nil || (d.Type != nil && !scalarAnnotation(d.Type)) {
+					return nil, e.fail(dn, "const requires an identifier, scalar initializer and optional number/boolean annotation")
 				}
-				x, err := e.expr(d.Initializer, env, 0)
+				x, err := e.expr(d.Initializer, env, depth+1)
 				if err != nil {
 					return nil, err
 				}
@@ -187,9 +218,9 @@ func (e *extractor) statements(nodes []*ast.Node, env map[*ast.Symbol]string, to
 			continue
 		case ast.KindReturnStatement:
 			if top || n.AsReturnStatement().Expression == nil {
-				return nil, e.fail(n, "a scalar function must return a number")
+				return nil, e.fail(n, "a scalar function must return a value")
 			}
-			x, err := e.expr(n.AsReturnStatement().Expression, env, 0)
+			x, err := e.expr(n.AsReturnStatement().Expression, env, depth+1)
 			if err != nil {
 				return nil, err
 			}
@@ -199,15 +230,15 @@ func (e *extractor) statements(nodes []*ast.Node, env map[*ast.Symbol]string, to
 			if e.isPrint(x) {
 				call := x.AsCallExpression()
 				if call.QuestionDotToken != nil || call.TypeArguments != nil || len(call.Arguments.Nodes) != 1 {
-					return nil, e.fail(x, "native console.log requires exactly one numeric argument")
+					return nil, e.fail(x, "native console.log requires exactly one number or boolean argument")
 				}
-				arg, err := e.expr(call.Arguments.Nodes[0], env, 0)
+				arg, err := e.expr(call.Arguments.Nodes[0], env, depth+1)
 				if err != nil {
 					return nil, err
 				}
 				s.Op, s.Value = "print", arg
 			} else {
-				arg, err := e.expr(x, env, 0)
+				arg, err := e.expr(x, env, depth+1)
 				if err != nil {
 					return nil, err
 				}
@@ -248,12 +279,16 @@ func (e *extractor) expr(n *ast.Node, env map[*ast.Symbol]string, depth int) (*f
 	if err := e.count(n, depth); err != nil {
 		return nil, err
 	}
-	if err := e.number(n); err != nil {
+	typ, err := e.scalar(n)
+	if err != nil {
 		return nil, err
 	}
-	x := &frontend.Expression{Type: "number", Loc: e.loc(n)}
+	x := &frontend.Expression{Type: typ, Loc: e.loc(n)}
 	var args []*ast.Node
 	switch n.Kind {
+	case ast.KindTrueKeyword, ast.KindFalseKeyword:
+		value := n.Kind == ast.KindTrueKeyword
+		x.Op, x.Bool = "bool", &value
 	case ast.KindNumericLiteral:
 		t := e.c.GetTypeAtLocation(n)
 		if t.Flags() != checker.TypeFlagsNumberLiteral {
@@ -267,21 +302,25 @@ func (e *extractor) expr(n *ast.Node, env map[*ast.Symbol]string, depth int) (*f
 	case ast.KindIdentifier:
 		id := env[e.c.GetSymbolAtLocation(n)]
 		if id == "" {
-			return nil, e.fail(n, "unknown/captured/forward value: "+n.Text()+"; only this scope's numeric bindings are supported")
+			return nil, e.fail(n, "unknown/captured/forward value: "+n.Text()+"; only in-scope scalar bindings are supported")
 		}
 		x.Op, x.Ref = "ref", id
 	case ast.KindBinaryExpression:
 		b := n.AsBinaryExpression()
-		x.Op = map[ast.Kind]string{ast.KindPlusToken: "add", ast.KindMinusToken: "sub", ast.KindAsteriskToken: "mul", ast.KindSlashToken: "div"}[b.OperatorToken.Kind]
+		x.Op = map[ast.Kind]string{
+			ast.KindPlusToken: "add", ast.KindMinusToken: "sub", ast.KindAsteriskToken: "mul", ast.KindSlashToken: "div",
+			ast.KindLessThanToken: "lt", ast.KindLessThanEqualsToken: "le", ast.KindGreaterThanToken: "gt", ast.KindGreaterThanEqualsToken: "ge",
+			ast.KindEqualsEqualsEqualsToken: "eq", ast.KindExclamationEqualsEqualsToken: "ne",
+		}[b.OperatorToken.Kind]
 		if x.Op == "" || b.Type != nil || hasModifiers(n) {
-			return nil, e.fail(n, "only numeric + - * / are supported; assignments and other operators are rejected")
+			return nil, e.fail(n, "unsupported operator: scalar/2 accepts arithmetic, ordered number comparisons and same-kind strict equality; no coercive equality, logical operators or assignment")
 		}
 		args = []*ast.Node{b.Left, b.Right}
 	case ast.KindPrefixUnaryExpression:
 		p := n.AsPrefixUnaryExpression()
-		x.Op = map[ast.Kind]string{ast.KindPlusToken: "pos", ast.KindMinusToken: "neg"}[p.Operator]
+		x.Op = map[ast.Kind]string{ast.KindPlusToken: "pos", ast.KindMinusToken: "neg", ast.KindExclamationToken: "not"}[p.Operator]
 		if x.Op == "" {
-			return nil, e.fail(n, "only numeric unary + and - are supported")
+			return nil, e.fail(n, "only numeric unary + / - and boolean ! are supported")
 		}
 		args = []*ast.Node{p.Operand}
 	case ast.KindParenthesizedExpression:

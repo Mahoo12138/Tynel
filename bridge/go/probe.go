@@ -12,6 +12,8 @@ func (b *builder) storage(t nir.Type) *types.Type {
 	switch t {
 	case nir.Number:
 		return types.Types[types.TFLOAT64]
+	case nir.Boolean:
+		return types.Types[types.TBOOL]
 	case nir.ProbeRef:
 		return b.probeRef
 	default:
@@ -52,6 +54,7 @@ func (b *builder) checkHost() error {
 		{"main", nil, nil},
 		{"tynelF64", []*types.Type{types.Types[types.TUINT64]}, []*types.Type{f64}},
 		{"tynelPrint", []*types.Type{f64}, nil},
+		{"tynelPrintBool", []*types.Type{types.Types[types.TBOOL]}, nil},
 		{"tynelProbeABI_v1", nil, nil},
 		{"tynelProbeGC", nil, nil},
 		{"tynelProbeStack", nil, nil},

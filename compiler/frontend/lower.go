@@ -26,7 +26,7 @@ func Lower(p *Program) (*nir.Module, error) {
 		if err := l.check(f.Loc); err != nil {
 			return nil, err
 		}
-		if !strings.HasPrefix(f.ID, "f") || !idPattern.MatchString(f.ID) || l.ids[f.ID] || f.Result != "number" || len(f.Params) > 32 {
+		if !strings.HasPrefix(f.ID, "f") || !idPattern.MatchString(f.ID) || l.ids[f.ID] || !scalarType(f.Result) || len(f.Params) > 32 {
 			return nil, l.fail(f.Loc, "invalid or duplicate scalar function")
 		}
 		l.ids[f.ID] = true
@@ -34,13 +34,13 @@ func Lower(p *Program) (*nir.Module, error) {
 	}
 	m := &nir.Module{IRVersion: nir.Version, Semantics: nir.Semantics, Package: "main"}
 	for _, f := range p.Functions {
-		g := nir.Function{Name: f.ID, Result: nir.Number, Loc: l.span(f.Loc)}
-		env := make(map[string]string)
+		g := nir.Function{Name: f.ID, Result: nir.Type(f.Result), Loc: l.span(f.Loc)}
+		env := make(map[string]localBinding)
 		for _, b := range f.Params {
 			if err := l.bind(b, env, "param"); err != nil {
 				return nil, err
 			}
-			g.Params = append(g.Params, nir.Param{Name: b.ID, Type: nir.Number})
+			g.Params = append(g.Params, nir.Param{Name: b.ID, Type: nir.Type(b.Type)})
 		}
 		if err := l.body(f.Body, &g, env, true); err != nil {
 			return nil, err
@@ -48,7 +48,7 @@ func Lower(p *Program) (*nir.Module, error) {
 		m.Functions = append(m.Functions, g)
 	}
 	main := nir.Function{Name: "main", Result: nir.Void, Loc: nir.Span{File: p.File, Line: 1, Column: 1}}
-	if err := l.body(p.Body, &main, make(map[string]string), false); err != nil {
+	if err := l.body(p.Body, &main, make(map[string]localBinding), false); err != nil {
 		return nil, err
 	}
 	m.Functions = append(m.Functions, main)
@@ -79,62 +79,24 @@ func (l *lowerer) check(s Span) error {
 	}
 	return nil
 }
-func (l *lowerer) bind(b Binding, env map[string]string, kind string) error {
+func (l *lowerer) bind(b Binding, env map[string]localBinding, kind string) error {
 	if err := l.check(b.Loc); err != nil {
 		return err
 	}
-	if b.Type != "number" || !strings.HasPrefix(b.ID, "v") || !idPattern.MatchString(b.ID) || l.ids[b.ID] || b.Name == "" {
+	if !scalarType(b.Type) || !strings.HasPrefix(b.ID, "v") || !idPattern.MatchString(b.ID) || l.ids[b.ID] || b.Name == "" {
 		return l.fail(b.Loc, "invalid or duplicate scalar binding")
 	}
 	l.ids[b.ID] = true
-	env[b.ID] = kind
+	env[b.ID] = localBinding{kind: kind, typ: b.Type}
 	return nil
 }
-func (l *lowerer) body(stmts []Statement, g *nir.Function, env map[string]string, mustReturn bool) error {
-	if len(stmts) > nir.MaxNodes {
-		return l.fail(Span{File: l.file}, "statement budget exceeded")
-	}
-	returned := false
-	for _, s := range stmts {
-		if err := l.check(s.Loc); err != nil {
-			return err
-		}
-		if returned {
-			return l.fail(s.Loc, "statements after return are not supported")
-		}
-		if s.Op != "const" && s.Binding != nil {
-			return l.fail(s.Loc, "unexpected binding on statement")
-		}
-		x, err := l.expr(s.Value, g, env, 0)
-		if err != nil {
-			return err
-		}
-		switch s.Op {
-		case "const":
-			if s.Binding == nil {
-				return l.fail(s.Loc, "missing const binding")
-			}
-			if err := l.bind(*s.Binding, env, "local"); err != nil {
-				return err
-			}
-			g.Body = append(g.Body, nir.Stmt{Op: "let", Name: s.Binding.ID, Value: x, Loc: l.span(s.Loc)})
-		case "return":
-			if !mustReturn {
-				return l.fail(s.Loc, "top-level return is not supported")
-			}
-			g.Body = append(g.Body, nir.Stmt{Op: "return", Value: x, Loc: l.span(s.Loc)})
-			returned = true
-		case "print":
-			g.Body = append(g.Body, nir.Stmt{Op: "print_number", Value: x, Loc: l.span(s.Loc)})
-		case "discard":
-			// Evaluate without printing. A bare `answer;` is not console.log.
-			l.materialize(x, g)
-		default:
-			return l.fail(s.Loc, "unsupported scalar statement "+s.Op)
-		}
+func (l *lowerer) body(stmts []Statement, g *nir.Function, env map[string]localBinding, mustReturn bool) error {
+	returned, err := l.sequence(stmts, g, env, mustReturn, 0)
+	if err != nil {
+		return err
 	}
 	if mustReturn && !returned {
-		return l.fail(Span{File: l.file}, "number function must return a value")
+		return l.fail(Span{File: l.file, Line: g.Loc.Line, Column: g.Loc.Column}, "not all paths return a value")
 	}
 	return nil
 }
@@ -142,58 +104,84 @@ func (l *lowerer) materialize(x *nir.Expr, g *nir.Function) *nir.Expr {
 	l.temp++
 	name := fmt.Sprintf("t%d", l.temp)
 	g.Body = append(g.Body, nir.Stmt{Op: "let", Name: name, Value: x, Loc: x.Loc})
-	return &nir.Expr{Op: "local", Type: nir.Number, Name: name, Loc: x.Loc}
+	return &nir.Expr{Op: "local", Type: x.Type, Name: name, Loc: x.Loc}
 }
-func (l *lowerer) expr(e *Expression, g *nir.Function, env map[string]string, depth int) (*nir.Expr, error) {
+func (l *lowerer) expr(e *Expression, g *nir.Function, env map[string]localBinding, depth int) (*nir.Expr, error) {
 	if e == nil {
 		return nil, l.fail(Span{File: l.file}, "missing scalar expression")
 	}
 	if err := l.check(e.Loc); err != nil {
 		return nil, err
 	}
-	if depth > nir.MaxDepth || e.Type != "number" {
+	if depth > nir.MaxDepth || !scalarType(e.Type) {
 		return nil, l.fail(e.Loc, "invalid scalar expression type or depth")
 	}
 	if e.Op != "number" && e.Bits != "" {
 		return nil, l.fail(e.Loc, "extraneous literal bits")
 	}
+	if e.Op != "bool" && e.Bool != nil {
+		return nil, l.fail(e.Loc, "extraneous boolean literal")
+	}
 	if e.Op != "ref" && e.Op != "call" && e.Ref != "" {
 		return nil, l.fail(e.Loc, "extraneous declaration reference")
 	}
-	x := &nir.Expr{Op: e.Op, Type: nir.Number, Loc: l.span(e.Loc)}
-	arity := 0
+	x := &nir.Expr{Op: e.Op, Type: nir.Type(e.Type), Loc: l.span(e.Loc)}
+	want := "number"
+	var operands []string
 	switch e.Op {
 	case "number":
 		if _, err := nir.DecodeNumber(e.Bits); err != nil {
 			return nil, l.fail(e.Loc, err.Error())
 		}
 		x.Bits = e.Bits
+	case "bool":
+		if e.Bool == nil {
+			return nil, l.fail(e.Loc, "missing boolean literal")
+		}
+		value := *e.Bool
+		x.Bool = &value
+		want = "boolean"
 	case "ref":
-		kind, ok := env[e.Ref]
+		binding, ok := env[e.Ref]
 		if !ok {
 			return nil, l.fail(e.Loc, "unknown, captured, or not-yet-initialized binding")
 		}
-		x.Op, x.Name = kind, e.Ref
+		x.Op, x.Name, want = binding.kind, e.Ref, binding.typ
 	case "add", "sub", "mul", "div":
-		arity = 2
+		operands = []string{"number", "number"}
 	case "neg", "pos":
-		arity = 1
+		operands = []string{"number"}
+	case "not":
+		want, operands = "boolean", []string{"boolean"}
+	case "lt", "le", "gt", "ge":
+		want, operands = "boolean", []string{"number", "number"}
+	case "eq", "ne":
+		if len(e.Args) != 2 || e.Args[0] == nil || !scalarType(e.Args[0].Type) {
+			return nil, l.fail(e.Loc, "invalid strict equality operands")
+		}
+		want, operands = "boolean", []string{e.Args[0].Type, e.Args[0].Type}
 	case "call":
 		fn, ok := l.funcs[e.Ref]
 		if !ok {
 			return nil, l.fail(e.Loc, "unknown direct function target")
 		}
-		arity, x.Name = len(fn.Params), fn.ID
+		want, x.Name = fn.Result, fn.ID
+		for _, p := range fn.Params {
+			operands = append(operands, p.Type)
+		}
 	default:
 		return nil, l.fail(e.Loc, "unsupported scalar expression "+e.Op)
 	}
-	if len(e.Args) != arity {
-		return nil, l.fail(e.Loc, "operand count does not match signature")
+	if e.Type != want || len(e.Args) != len(operands) {
+		return nil, l.fail(e.Loc, "result type or operand count does not match signature")
 	}
-	for _, a := range e.Args {
+	for i, a := range e.Args {
 		arg, err := l.expr(a, g, env, depth+1)
 		if err != nil {
 			return nil, err
+		}
+		if string(arg.Type) != operands[i] {
+			return nil, l.fail(a.Loc, "operand type does not match signature")
 		}
 		x.Args = append(x.Args, arg)
 	}
@@ -207,7 +195,7 @@ func (l *lowerer) expr(e *Expression, g *nir.Function, env map[string]string, de
 		x.Op = "mul"
 		x.Args = append([]*nir.Expr{{Op: "number", Type: nir.Number, Bits: nir.EncodeNumber(-1), Loc: x.Loc}}, x.Args...)
 	}
-	if e.Op == "number" || e.Op == "ref" {
+	if e.Op == "number" || e.Op == "bool" || e.Op == "ref" {
 		return x, nil
 	}
 	return l.materialize(x, g), nil

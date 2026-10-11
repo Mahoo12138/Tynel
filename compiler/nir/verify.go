@@ -28,7 +28,7 @@ type binding struct {
 }
 
 func valueType(t Type, probe bool) bool {
-	return t == Number || probe && t == ProbeRef
+	return t == Number || t == Boolean || probe && t == ProbeRef
 }
 
 // Validate checks every body, including unused functions. Probe operations
@@ -87,78 +87,12 @@ func Validate(m *Module) error {
 			}
 			values[p.Name] = binding{p.Type, true}
 		}
-		returned := false
-		for _, stmt := range fn.Body {
-			count++
-			if count > MaxNodes {
-				return fail(stmt.Loc, "IR node budget exceeded")
-			}
-			if returned {
-				return fail(stmt.Loc, "statement after return")
-			}
-			if err := validSpan(stmt.Loc); err != nil {
-				return err
-			}
-			if stmt.Op != "let" && stmt.Name != "" {
-				return fail(stmt.Loc, "extraneous statement binding")
-			}
-			paired := stmt.Op == "probe_store_value" || stmt.Op == "probe_store_next" || stmt.Op == "probe_assert_same"
-			if !paired && stmt.Target != nil {
-				return fail(stmt.Loc, "extraneous statement target")
-			}
-			if strings.HasPrefix(stmt.Op, "probe_") && !probe {
-				return fail(stmt.Loc, "%s requires feature %s", stmt.Op, ProbeGCFeature)
-			}
-			want := Number
-			switch stmt.Op {
-			case "let":
-				if !identifier.MatchString(stmt.Name) || values[stmt.Name].typ != "" {
-					return fail(stmt.Loc, "invalid or duplicate local %q", stmt.Name)
-				}
-				if err := checkExpr(stmt.Value, values, funcs, probe, 0, &count); err != nil {
-					return err
-				}
-				// No self/forward references: publish the binding after checking its initializer.
-				values[stmt.Name] = binding{stmt.Value.Type, false}
-				continue
-			case "return":
-				returned = true
-				if fn.Result == Void {
-					if stmt.Value != nil {
-						return fail(stmt.Loc, "void return has a value")
-					}
-					continue
-				}
-				want = fn.Result
-			case "print_number":
-				// Experimental host output, not JS console.log.
-			case "probe_gc", "probe_stack":
-				if stmt.Value != nil {
-					return fail(stmt.Loc, "%s takes no operands", stmt.Op)
-				}
-				continue
-			case "probe_store_value", "probe_store_next", "probe_assert_same":
-				if err := checkExpr(stmt.Target, values, funcs, probe, 0, &count); err != nil {
-					return err
-				}
-				if stmt.Target.Type != ProbeRef {
-					return fail(stmt.Loc, "probe target must be probe_ref")
-				}
-				if stmt.Op != "probe_store_value" {
-					want = ProbeRef
-				}
-			default:
-				return fail(stmt.Loc, "unsupported statement %q", stmt.Op)
-			}
-			if err := checkExpr(stmt.Value, values, funcs, probe, 0, &count); err != nil {
-				return err
-			}
-			if stmt.Value.Type != want {
-				return fail(stmt.Loc, "%s expects %s, got %s", stmt.Op, want, stmt.Value.Type)
-			}
+		returned, err := checkBody(fn.Body, values, funcs, probe, fn.Result, 0, &count)
+		if err != nil {
+			return err
 		}
 		if fn.Result != Void && !returned {
-			return fail(fn.Loc, "value function %q has no return", fn.Name)
+			return fail(fn.Loc, "not all paths return a value in %q", fn.Name)
 		}
 	}
 	return nil
@@ -181,6 +115,9 @@ func checkExpr(e *Expr, values map[string]binding, funcs map[string]*Function, p
 	if e.Op != "number" && e.Bits != "" {
 		return fail(e.Loc, "extraneous number bits")
 	}
+	if e.Op != "bool" && e.Bool != nil {
+		return fail(e.Loc, "extraneous boolean literal")
+	}
 	if e.Op != "param" && e.Op != "local" && e.Op != "call" && e.Name != "" {
 		return fail(e.Loc, "extraneous expression name")
 	}
@@ -197,6 +134,20 @@ func checkExpr(e *Expr, values map[string]binding, funcs map[string]*Function, p
 		if _, err := DecodeNumber(e.Bits); err != nil {
 			return fail(e.Loc, "%v", err)
 		}
+	case "bool":
+		if e.Bool == nil {
+			return fail(e.Loc, "missing boolean literal")
+		}
+		want = Boolean
+	case "not":
+		want, operands = Boolean, []Type{Boolean}
+	case "lt", "le", "gt", "ge":
+		want, operands = Boolean, []Type{Number, Number}
+	case "eq", "ne":
+		if len(e.Args) != 2 || e.Args[0] == nil || (e.Args[0].Type != Number && e.Args[0].Type != Boolean) {
+			return fail(e.Loc, "strict equality requires two same-kind scalar operands")
+		}
+		want, operands = Boolean, []Type{e.Args[0].Type, e.Args[0].Type}
 	case "param", "local":
 		v, ok := values[e.Name]
 		if !ok || v.parameter != (e.Op == "param") {

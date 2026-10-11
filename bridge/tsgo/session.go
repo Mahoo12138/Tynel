@@ -74,12 +74,12 @@ type Session struct {
 
 func New(source string) (*Session, error) { return newSession(source, false) }
 
-// NewScalar enables the explicitly limited numeric console capability used by
+// NewScalar enables the explicitly limited scalar console capability used by
 // the native scalar slice. The query-only New API keeps its previous environment.
 func NewScalar(source string) (*Session, error) { return newSession(source, true) }
 
 const printDeclarationFile = "/tynel/native-print.d.ts"
-const printDeclaration = "declare const console: { readonly log: (value: number) => void };\n"
+const printDeclaration = "declare const console: { readonly log: (value: number | boolean) => void };\n"
 
 func newSession(source string, scalar bool) (*Session, error) {
 	if len(source) > MaxSourceBytes || !utf8.ValidString(source) {

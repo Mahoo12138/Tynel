@@ -34,9 +34,9 @@
     "commit": "9131a3498c877e3a6b8e24a95f1bedf4d031fc5d",
     "role": "design-reference-only"
   },
-  "irVersion": 2,
+  "irVersion": 3,
   "semantics": "tynel.shared-core/0.1",
-  "bridgeABI": "tynel.go-probe/2",
+  "bridgeABI": "tynel.go-probe/3",
   "supportABI": "tynel.probesupport/1",
   "supportAnchor": "tynelProbeABI_v1",
   "testedTargets": ["windows/amd64"]
