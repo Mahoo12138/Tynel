@@ -1,0 +1,12 @@
+# Keep source fingerprints and gofmt checks stable across Windows checkouts.
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+*.ps1 text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.ts text eol=lf
+*.md text eol=lf

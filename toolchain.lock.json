@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "go": {
+    "version": "go1.26.7",
+    "repository": "https://github.com/golang/go.git",
+    "ref": "go1.26.7",
+    "commit": "e3336a22ad3f0a90bd252c95d8b5544e02674205",
+    "commitEvidence": "Git clone through per-command proxy; tracked src files match private SDK; extra SDK files reported, binaries not rebuilt",
+    "sourceGitTree": "f7ae2b00ccd4b49fd750175a83b491d73684ad2d",
+    "trackedSrcSHA256": "6075ba5a68d0647b906166391aec97e772c69ed371c48d8d0a9e496119bb1055",
+    "trackedSrcFiles": 11470,
+    "gcMainSHA256": "0bdbd556dfdff223c125fb9d115f38e5693c153cf6fe41be25bee1719083b967",
+    "integration": "source-overlay-fork-probe"
+  },
+  "typescript": {
+    "repository": "https://github.com/microsoft/TypeScript.git",
+    "commit": null,
+    "status": "not-integrated"
+  },
+  "scriptcStudy": {
+    "version": "v0.2.7",
+    "commit": "9131a3498c877e3a6b8e24a95f1bedf4d031fc5d",
+    "role": "design-reference-only"
+  },
+  "irVersion": 1,
+  "semantics": "tynel.shared-core/0.1",
+  "bridgeABI": "tynel.go-probe/1",
+  "testedTargets": [
+    "windows/amd64"
+  ]
+}

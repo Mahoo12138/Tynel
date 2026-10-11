@@ -1,0 +1,141 @@
+// Package tynelbridge runs INSIDE the forked Go compiler. It consumes NIR,
+// never TypeScript checker objects and never generated Go business source.
+package tynelbridge
+
+import (
+	"fmt"
+	"go/constant"
+	"os"
+	"strconv"
+
+	"cmd/compile/internal/base"
+	"cmd/compile/internal/ir"
+	"cmd/compile/internal/tynelbridge/nir"
+	"cmd/compile/internal/typecheck"
+	"cmd/compile/internal/types"
+	"cmd/internal/src"
+)
+
+func Load(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	m, err := nir.Read(f)
+	if err != nil {
+		return err
+	}
+	if types.LocalPkg.Name != "main" {
+		return fmt.Errorf("bridge requires the research main-package harness")
+	}
+	b := &builder{functions: make(map[string]*ir.Func), files: make(map[string]*src.PosBase)}
+	for _, fn := range typecheck.Target.Funcs {
+		b.functions[fn.Sym().Name] = fn
+	}
+	if b.functions["main"] == nil || b.functions["tynelF64"] == nil || b.functions["tynelPrint"] == nil {
+		return fmt.Errorf("missing handwritten bootstrap functions")
+	}
+	for i := range m.Functions {
+		fn := &m.Functions[i]
+		if fn.Name == "main" {
+			continue
+		}
+		if b.functions[fn.Name] != nil {
+			return fmt.Errorf("function conflicts with bootstrap: %s", fn.Name)
+		}
+		pos := b.pos(fn.Loc)
+		params := make([]*types.Field, len(fn.Params))
+		for j, p := range fn.Params {
+			params[j] = types.NewField(pos, types.LocalPkg.Lookup(p.Name), types.Types[types.TFLOAT64])
+		}
+		var results []*types.Field
+		if fn.Result == nir.Number {
+			results = []*types.Field{types.NewField(pos, nil, types.Types[types.TFLOAT64])}
+		}
+		sym := types.LocalPkg.Lookup(fn.Name)
+		g := ir.NewFunc(pos, pos, sym, types.NewSignature(nil, params, results))
+		g.Endlineno = pos
+		sym.Def = g.Nname
+		typecheck.DeclFunc(g)
+		typecheck.FinishFuncBody()
+		b.functions[fn.Name] = g
+	}
+	for i := range m.Functions {
+		fn := &m.Functions[i]
+		g := b.functions[fn.Name]
+		old := ir.CurFunc
+		ir.CurFunc = g
+		params := make(map[string]*ir.Name)
+		for j, p := range fn.Params {
+			params[p.Name] = g.Type().Params()[j].Nname.(*ir.Name)
+		}
+		g.Body = nil
+		for _, s := range fn.Body {
+			pos := b.pos(s.Loc)
+			var node ir.Node
+			switch s.Op {
+			case "return":
+				var values []ir.Node
+				if s.Value != nil {
+					values = []ir.Node{b.expr(s.Value, params)}
+				}
+				node = ir.NewReturnStmt(pos, values)
+			case "print_number":
+				node = ir.NewCallExpr(pos, ir.OCALL, b.functions["tynelPrint"].Nname, []ir.Node{b.expr(s.Value, params)})
+			default:
+				panic("validated statement missing in bridge")
+			}
+			g.Body = append(g.Body, typecheck.Stmt(node))
+		}
+		// nil Body denotes an external declaration to the Go backend, not
+		// an empty function. Materialize void fallthrough explicitly.
+		if fn.Result == nir.Void && (len(fn.Body) == 0 || fn.Body[len(fn.Body)-1].Op != "return") {
+			g.Body = append(g.Body, typecheck.Stmt(ir.NewReturnStmt(b.pos(fn.Loc), nil)))
+		}
+		ir.CurFunc = old
+	}
+	return nil
+}
+
+type builder struct {
+	functions map[string]*ir.Func
+	files     map[string]*src.PosBase
+}
+
+func (b *builder) pos(s nir.Span) src.XPos {
+	file := b.files[s.File]
+	if file == nil {
+		file = src.NewFileBase(s.File, s.File)
+		b.files[s.File] = file
+	}
+	return base.Ctxt.PosTable.XPos(src.MakePos(file, uint(s.Line), uint(s.Column)))
+}
+
+func (b *builder) expr(e *nir.Expr, params map[string]*ir.Name) ir.Node {
+	pos := b.pos(e.Loc)
+	var node ir.Node
+	switch e.Op {
+	case "number":
+		bits, err := strconv.ParseUint(e.Bits, 16, 64)
+		if err != nil {
+			panic("validated binary64 bits changed")
+		}
+		u := ir.NewBasicLit(pos, types.Types[types.TUINT64], constant.MakeUint64(bits))
+		node = ir.NewCallExpr(pos, ir.OCALL, b.functions["tynelF64"].Nname, []ir.Node{u})
+	case "param":
+		return params[e.Name]
+	case "add", "sub", "mul", "div":
+		op := map[string]ir.Op{"add": ir.OADD, "sub": ir.OSUB, "mul": ir.OMUL, "div": ir.ODIV}[e.Op]
+		node = ir.NewBinaryExpr(pos, op, b.expr(e.Args[0], params), b.expr(e.Args[1], params))
+	case "call":
+		args := make([]ir.Node, len(e.Args))
+		for i, arg := range e.Args {
+			args[i] = b.expr(arg, params)
+		}
+		node = ir.NewCallExpr(pos, ir.OCALL, b.functions[e.Name].Nname, args)
+	default:
+		panic("validated expression missing in bridge")
+	}
+	return typecheck.Expr(node)
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 3,
+  "stages": [
+    {
+      "tag": "stage/01-ir-native",
+      "parentTag": null,
+      "chapter": 1,
+      "note": "docs/notes/01-from-ir-to-native.md",
+      "frontend": false
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+/.upstream/
+/.research/
+/.tynel/
+/bin/
+/dist/
+*.test
+coverage.out

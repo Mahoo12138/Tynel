@@ -1,0 +1,31 @@
+{
+  "irVersion": 1,
+  "semantics": "tynel.shared-core/0.1",
+  "package": "main",
+  "functions": [
+    {
+      "name": "add",
+      "params": [{"name": "a", "type": "number"}, {"name": "b", "type": "number"}],
+      "result": "number",
+      "loc": {"file": "examples/add.reference.ts", "line": 2, "column": 1},
+      "body": [{"op": "return", "loc": {"file": "examples/add.reference.ts", "line": 3, "column": 3}, "value": {
+        "op": "add", "type": "number", "loc": {"file": "examples/add.reference.ts", "line": 3, "column": 10},
+        "args": [
+          {"op": "param", "type": "number", "name": "a", "loc": {"file": "examples/add.reference.ts", "line": 3, "column": 10}},
+          {"op": "param", "type": "number", "name": "b", "loc": {"file": "examples/add.reference.ts", "line": 3, "column": 14}}
+        ]
+      }}]
+    },
+    {
+      "name": "main", "params": [], "result": "void",
+      "loc": {"file": "examples/add.reference.ts", "line": 5, "column": 1},
+      "body": [{"op": "print_number", "loc": {"file": "examples/add.reference.ts", "line": 5, "column": 1}, "value": {
+        "op": "call", "type": "number", "name": "add", "loc": {"file": "examples/add.reference.ts", "line": 5, "column": 13},
+        "args": [
+          {"op": "number", "type": "number", "bits": "4044000000000000", "loc": {"file": "examples/add.reference.ts", "line": 5, "column": 17}},
+          {"op": "number", "type": "number", "bits": "4000000000000000", "loc": {"file": "examples/add.reference.ts", "line": 5, "column": 21}}
+        ]
+      }}]
+    }
+  ]
+}
