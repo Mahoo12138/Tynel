@@ -14,6 +14,13 @@
       "chapter": 2,
       "note": "docs/notes/02-tsgo-facade-and-type-facts.md",
       "frontend": true
+    },
+    {
+      "tag": "stage/03-ts-native",
+      "parentTag": "stage/02-tsgo-query",
+      "chapter": 3,
+      "note": "docs/notes/03-typescript-to-native.md",
+      "frontend": true
     }
   ]
 }

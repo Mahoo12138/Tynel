@@ -14,7 +14,7 @@ func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
 func run(args []string, out, errs io.Writer) int {
 	if len(args) == 1 && args[0] == "version" {
-		fmt.Fprintf(out, "Tynel %s (IR v%d; TypeScript frontend not integrated)\n", version, nir.Version)
+		fmt.Fprintf(out, "Tynel %s (IR v%d; TypeScript frontend not integrated into this CLI; scalar driver: scripts/compile-ts.ps1)\n", version, nir.Version)
 		return 0
 	}
 	if len(args) == 2 && (args[0] == "check-ir" || args[0] == "fmt-ir") {
@@ -40,7 +40,7 @@ func run(args []string, out, errs io.Writer) int {
 		return 0
 	}
 	if len(args) > 0 && (args[0] == "build" || args[0] == "run" || args[0] == "check") {
-		fmt.Fprintln(errs, "TY1001: TypeScript frontend is not implemented yet; use check-ir and scripts/compile-ir.ps1 for the M1 research bridge.")
+		fmt.Fprintln(errs, "TY1001: TypeScript commands are not integrated into this CLI; use scripts/compile-ts.ps1 for the scalar source pilot, or check-ir and scripts/compile-ir.ps1 for NIR.")
 		return 2
 	}
 	fmt.Fprintln(errs, "usage: tynel version | check-ir <module.json> | fmt-ir <module.json>")

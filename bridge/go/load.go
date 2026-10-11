@@ -165,6 +165,10 @@ func (b *builder) expr(e *nir.Expr, params map[string]*ir.Name) ir.Node {
 	case "add", "sub", "mul", "div":
 		op := map[string]ir.Op{"add": ir.OADD, "sub": ir.OSUB, "mul": ir.OMUL, "div": ir.ODIV}[e.Op]
 		node = ir.NewBinaryExpr(pos, op, b.expr(e.Args[0], params), b.expr(e.Args[1], params))
+		// Explicit same-type float conversion records the source operation's
+		// rounding boundary (Round64F in Go SSA); temporaries alone do not
+		// prevent Go from fusing multiply/add across statements.
+		node = ir.NewConvExpr(pos, ir.OCONV, types.Types[types.TFLOAT64], typecheck.Expr(node))
 	case "call":
 		args := make([]ir.Node, len(e.Args))
 		for i, arg := range e.Args {

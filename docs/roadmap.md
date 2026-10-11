@@ -1,12 +1,12 @@
 # Tynel 实施路线图
 
-依据此前确认的 v2 计划，将项目名称统一为 Tynel。这里是可执行状态摘要，不是完整计划文件的替代副本。
+以根目录 [SPEC.md](../SPEC.md) 为项目技术规格。这里是阶段摘要；任务 ID、前置依赖和验收见 SPEC 第 18—20 节，实际执行证据见 [开发记录](progress.md)。M0/M1 仍有前置缺口；当前也已连接 M2 的受限数值切片，不能把单个切片完成视为整个阶段退出。
 
 | 阶段 | 目标 | 本轮边界 |
 |---|---|---|
-| M0 | 语义冻结、锁定两上游、internal/facade 布局 | 建立本地项目和 Go 接缝指纹；tsgo pin/facade 尚缺 |
-| M1 | NIR -> Go 高层 IR -> 原生执行 | 本轮重点；完成度以 progress.md 实测记录为准 |
-| M2 | tsgo session、TypeFacts、真实 TS lowering | 待开发；不使用正则解析冒充 |
+| M0 | 语义冻结、锁定两上游、internal/facade 布局 | Go/tsgo commit 已记录，tsgo 源码/声明指纹和独立 facade 已落地；Go 全树来源与完整干净重建未完成 |
+| M1 | NIR -> Go 高层 IR -> 原生执行 | 标量闭环和固定对象 GC/ABI 探针已实现；完整阶段仍未退出，见 progress-t09.md |
+| M2 | tsgo session、TypeFacts、真实 TS lowering | 受限数值 TS→自有事实/原生约束→NIR→exe 已连通；通用 TypeFacts、if/循环、模块与完整诊断尚未完成 |
 | M3 | number/string/nullish 语义与差分测试 | 无损浮点 IR 先做；完整运算规则后续补齐 |
 | M4 | 对象、数组、别名和 GC | 待开发，禁止把类型视图偷偷复制 |
 | M5 | 泛型、联合、结构视图、闭包 | 待开发，GC 指针布局优先 |
@@ -16,4 +16,4 @@
 | M9 | 共享类型的书签 HTTP 纵向示例 | 待开发，以真实客户端故障测试验收 |
 | M10 | 可解释性、性能、可复现工具链 | 待开发，先正确再测量优化 |
 
-首批继续任务：完成 Go upstream 的精确 commit/source pin；接缝 GC smoke；链接时 ABI 防混用；tsgo 合法包树内 facade。原计划 T09 包含 GC 与身份锚点，不能因为 add 可执行就把整个 M1 标记完成。
+T01/T04 本轮结果见 [前端基线记录](progress-t01-t04.md)。T14/T16 的数值连接见 [源编译记录](progress-t14-t16.md)。继续完成 Go SDK 全树来源/干净重建、通用 TypeFacts，以及布尔比较与结构化分支；闭包存活、类型元数据和完整 ABI 组合仍有未覆盖边界。T09 的固定对象 GC 与身份锚点原型见 [独立记录](progress-t09.md)，不能由它推导整个 M0/M1 已完成。

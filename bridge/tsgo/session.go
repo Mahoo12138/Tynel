@@ -69,9 +69,19 @@ type Session struct {
 	file     *ast.SourceFile
 	text     string
 	snapshot Snapshot
+	scalar   bool
 }
 
-func New(source string) (*Session, error) {
+func New(source string) (*Session, error) { return newSession(source, false) }
+
+// NewScalar enables the explicitly limited numeric console capability used by
+// the native scalar slice. The query-only New API keeps its previous environment.
+func NewScalar(source string) (*Session, error) { return newSession(source, true) }
+
+const printDeclarationFile = "/tynel/native-print.d.ts"
+const printDeclaration = "declare const console: { readonly log: (value: number) => void };\n"
+
+func newSession(source string, scalar bool) (*Session, error) {
 	if len(source) > MaxSourceBytes || !utf8.ValidString(source) {
 		return nil, errors.New("TY1100: source must be valid UTF-8, at most 64 KiB")
 	}
@@ -79,10 +89,16 @@ func New(source string) (*Session, error) {
 	const name = "/tynel/probe.ts"
 	// The upstream's in-memory test FS keeps the probe hermetic: imports can
 	// only resolve within this snapshot and the pinned bundled declarations.
-	fs := bundled.WrapFS(vfstest.FromMap(map[string]string{name: source}, true))
+	files := map[string]string{name: source}
+	roots := []string{name}
+	if scalar {
+		files[printDeclarationFile] = printDeclaration
+		roots = append(roots, printDeclarationFile)
+	}
+	fs := bundled.WrapFS(vfstest.FromMap(files, true))
 	host := compiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 	opts := &core.CompilerOptions{Strict: core.TSTrue, NoEmit: core.TSTrue, SkipLibCheck: core.TSTrue, Lib: []string{"lib.es5.d.ts"}}
-	config := tsoptions.NewParsedCommandLine(opts, []string{name}, tspath.ComparePathsOptions{CurrentDirectory: cwd, UseCaseSensitiveFileNames: true})
+	config := tsoptions.NewParsedCommandLine(opts, roots, tspath.ComparePathsOptions{CurrentDirectory: cwd, UseCaseSensitiveFileNames: true})
 	p := compiler.NewProgram(compiler.ProgramOptions{Host: host, Config: config, SingleThreaded: core.TSTrue})
 	var file *ast.SourceFile
 	for _, f := range p.SourceFiles() {
@@ -94,7 +110,7 @@ func New(source string) (*Session, error) {
 	if file == nil {
 		return nil, errors.New("TY9101: upstream did not load the probe source")
 	}
-	s := &Session{program: p, file: file, text: source, snapshot: Snapshot{Protocol: Protocol, UpstreamCommit: UpstreamCommit, SourceSHA256: fmt.Sprintf("%x", sha256.Sum256([]byte(source))), Diagnostics: []Diagnostic{}}}
+	s := &Session{program: p, file: file, text: source, scalar: scalar, snapshot: Snapshot{Protocol: Protocol, UpstreamCommit: UpstreamCommit, SourceSHA256: fmt.Sprintf("%x", sha256.Sum256([]byte(source))), Diagnostics: []Diagnostic{}}}
 	ctx := context.Background()
 	diagnostics := p.GetSyntacticDiagnostics(ctx, nil)
 	diagnostics = append(diagnostics, p.GetGlobalDiagnostics(ctx)...)

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 3,
-  "tag": "stage/02-tsgo-query",
-  "parentTag": "stage/01-ir-native",
-  "chapter": 2,
-  "note": "docs/notes/02-tsgo-facade-and-type-facts.md",
-  "scope": "Query-only tsgo frontend and fixed GC/ABI probes; no source lowering",
+  "tag": "stage/03-ts-native",
+  "parentTag": "stage/02-tsgo-query",
+  "chapter": 3,
+  "note": "docs/notes/03-typescript-to-native.md",
+  "scope": "Single-file scalar TypeScript to native; fixed support scaffold; no general objects or modules",
   "validation": {
     "script": "scripts/replay.ps1",
     "frontend": true,
@@ -12,6 +12,7 @@
   },
   "expected": {
     "dist/add.exe": "42\n",
-    "gcProbe": "42\n7\n43\n"
+    "gcProbe": "42\n7\n43\n",
+    "dist/ts-add.exe": "42\n"
   }
 }

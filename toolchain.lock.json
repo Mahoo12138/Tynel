@@ -27,7 +27,7 @@
     "declarationSHA256": "cc8c01e8b9425095f7e7314fbe91255122b1e7e484b7854eb1c545464900c9b4",
     "declarationFiles": 108,
     "facadeProtocol": "tynel.tsgo-probe/1",
-    "status": "pinned-query-only-replay"
+    "status": "pinned-scalar-source-to-nir"
   },
   "scriptcStudy": {
     "version": "v0.2.7",
@@ -37,9 +37,7 @@
   "irVersion": 2,
   "semantics": "tynel.shared-core/0.1",
   "bridgeABI": "tynel.go-probe/2",
-  "testedTargets": [
-    "windows/amd64"
-  ],
   "supportABI": "tynel.probesupport/1",
-  "supportAnchor": "tynelProbeABI_v1"
+  "supportAnchor": "tynelProbeABI_v1",
+  "testedTargets": ["windows/amd64"]
 }

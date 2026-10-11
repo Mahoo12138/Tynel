@@ -1,7 +1,7 @@
 function Get-TynelFrontendInputs {
   param([Parameter(Mandatory=$true)][string]$Root)
   $names = @('go.mod', 'toolchain.lock.json', 'scripts/prepare-tsgo.py', 'scripts/build-tsgo-probe.ps1', 'scripts/frontend-common.ps1')
-  foreach ($dir in @('bridge/tsgo', 'experiments/tsgo-host')) {
+  foreach ($dir in @('bridge/tsgo', 'experiments/tsgo-host', 'compiler/frontend', 'compiler/nir')) {
     foreach ($file in (Get-ChildItem -LiteralPath (Join-Path $Root $dir) -File -Recurse)) {
       if ($file.Extension -eq '.go' -or $file.Name -in @('go.mod','go.sum')) { $names += [IO.Path]::GetRelativePath($Root,$file.FullName).Replace('\','/') }
     }

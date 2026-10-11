@@ -67,7 +67,7 @@ try {
   if ((Get-FrontendInputs) -cne $before) { throw 'Frontend build inputs changed during execution; rebuild.' }
   & python -X utf8 (Join-Path $PSScriptRoot 'prepare-tsgo.py') --verify-only
   if ($LASTEXITCODE -ne 0) { throw 'Upstream sources changed during execution.' }
-  $identity = @{ schemaVersion=1; protocol=$lock.typescript.facadeProtocol; upstreamCommit=$lock.typescript.commit; sourceTreeSHA256=$lock.typescript.selectedTreeSHA256; declarationSHA256=$lock.typescript.declarationSHA256; goVersion=$lock.typescript.goVersion; target='windows/amd64'; compilerSHA256=(Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant(); sourceHashes=($before | ConvertFrom-Json); testsRun=[bool]$Test; passedTestEvents=$passed; scope='single-source query-only reconstructed replay; no TS-to-NIR' }
+  $identity = @{ schemaVersion=1; protocol=$lock.typescript.facadeProtocol; upstreamCommit=$lock.typescript.commit; sourceTreeSHA256=$lock.typescript.selectedTreeSHA256; declarationSHA256=$lock.typescript.declarationSHA256; goVersion=$lock.typescript.goVersion; target='windows/amd64'; compilerSHA256=(Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant(); sourceHashes=($before | ConvertFrom-Json); testsRun=[bool]$Test; passedTestEvents=$passed; scope='single-source query plus scalar TS-to-facts-to-NIR; Go backend invoked separately' }
   [IO.File]::WriteAllText($identityPath, ($identity | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
   Write-Output "Built frontend probe: $binary"
 } finally {

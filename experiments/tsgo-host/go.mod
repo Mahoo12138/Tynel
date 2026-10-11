@@ -5,6 +5,10 @@ go 1.26.0
 toolchain go1.26.7
 
 require github.com/microsoft/typescript-go v0.0.0
+require tynel.local/tynel v0.0.0
+
+replace tynel.local/tynel => ../..
+
 
 require (
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
