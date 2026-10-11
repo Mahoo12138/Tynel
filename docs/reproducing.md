@@ -10,6 +10,7 @@
 | `stage/02-tsgo-query` | 笔记 02：查出 answer 的类型 | 类型检查与位置查询；包含固定对象 GC/ABI 基础验证，尚无源码 lowering |
 | `stage/03-ts-native` | 笔记 03：让 TypeScript 接替手写 IR | 受限数值 TS → 结构化事实 → NIR → 原生程序 |
 | `stage/04-control-flow` | 笔记 04：只执行被选中的分支 | boolean、比较、if/else、词法范围与返回路径检查；NIR v3 |
+| `stage/05-short-circuit` | 笔记 05：让右边的函数先等一等 | boolean && / \|\|、惰性 RHS 与结果绑定；NIR v4 |
 
 概念查询表是参考资料，不另设阶段或标签。笔记头部的 `experiment_tag` 指定实验版本；该版本中的 `replay.json` 列出范围、输入和测试入口，`docs/replay-validation.md` 保存实际结果。阶段并不等于整个 SPEC 里程碑已经完成。
 
@@ -34,7 +35,7 @@ Get-Content replay.json
 pwsh -NoProfile -File scripts/replay.ps1 `
   -SdkSource D:\Code\Tynel\.tynel\sdk\go1.26.7
 
-# 笔记 02、03、04 还需前端；在各自检出的目录执行
+# 笔记 02—05 还需前端；在各自检出的目录执行
 pwsh -NoProfile -File scripts/replay.ps1 `
   -SdkSource D:\Code\Tynel\.tynel\sdk\go1.26.7 `
   -WithFrontend -Proxy http://127.0.0.1:7890

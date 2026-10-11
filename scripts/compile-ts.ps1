@@ -56,7 +56,7 @@ try {
   [IO.File]::WriteAllBytes($snapshot,$bytes)
   $factsText = Invoke-Frontend @('-emit','facts','-source-name',$sourceName,$snapshot)
   $facts = $factsText | ConvertFrom-Json
-  if ($facts.sourceSHA256 -cne $sourceHash -or $facts.profile -cne 'tynel.scalar/2') { throw 'Frontend source/profile identity mismatch.' }
+  if ($facts.sourceSHA256 -cne $sourceHash -or $facts.profile -cne 'tynel.scalar/3' -or $facts.version -ne 3) { throw 'Frontend source/profile identity mismatch.' }
   $irText = Invoke-Frontend @('-emit','nir','-source-name',$sourceName,$snapshot)
   $utf8 = [Text.UTF8Encoding]::new($false)
   $factsPath = Join-Path $stage 'source.facts.json'
@@ -70,7 +70,7 @@ try {
   Assert-TynelBridgeFresh -Root $root -Identity $bridge
   if ((Get-FileHash -LiteralPath '.tynel/bin/tynel-compile.exe' -Algorithm SHA256).Hash.ToLowerInvariant() -cne $bridge.compilerSHA256) { throw 'Backend changed during source compilation.' }
   $record = [ordered]@{
-    schemaVersion=1; profile='tynel.scalar/2'; source=$sourceName; sourceSHA256=$sourceHash
+    schemaVersion=1; profile='tynel.scalar/3'; source=$sourceName; sourceSHA256=$sourceHash
     frontendSHA256=$frontendIdentity.compilerSHA256; tsgoCommit=$frontendIdentity.upstreamCommit
     backendSHA256=$bridge.compilerSHA256; goVersion=$bridge.goVersion; irVersion=$bridge.irVersion
     supportABI=$bridge.supportABI; target='windows/amd64'

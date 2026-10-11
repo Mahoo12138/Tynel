@@ -81,6 +81,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'TypeScript-to-native scalar regression failed.' }
     & python -X utf8 (Join-Path $PSScriptRoot 'smoke-control.py')
     if ($LASTEXITCODE -ne 0) { throw 'Boolean/control-flow native regression failed.' }
+    & python -X utf8 (Join-Path $PSScriptRoot 'smoke-short-circuit.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Short-circuit native regression failed.' }
   } else { Write-Output 'Frontend probe not requested; use -WithFrontend after prepare-tsgo.py.' }
   Write-Output 'Tynel regression passed.'
 } finally {

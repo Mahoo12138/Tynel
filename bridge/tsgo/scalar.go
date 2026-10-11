@@ -96,7 +96,7 @@ func numeric(t *checker.Type) bool {
 func (e *extractor) scalar(n *ast.Node) (string, error) {
 	t := scalarKind(e.c.GetTypeAtLocation(n))
 	if t == "" {
-		return "", e.fail(n, "scalar/2 requires a checked number or boolean (not any, heterogeneous union, enum or object)")
+		return "", e.fail(n, "scalar/3 requires a checked number or boolean (not any, heterogeneous union, enum or object)")
 	}
 	return t, nil
 }
@@ -311,9 +311,10 @@ func (e *extractor) expr(n *ast.Node, env map[*ast.Symbol]string, depth int) (*f
 			ast.KindPlusToken: "add", ast.KindMinusToken: "sub", ast.KindAsteriskToken: "mul", ast.KindSlashToken: "div",
 			ast.KindLessThanToken: "lt", ast.KindLessThanEqualsToken: "le", ast.KindGreaterThanToken: "gt", ast.KindGreaterThanEqualsToken: "ge",
 			ast.KindEqualsEqualsEqualsToken: "eq", ast.KindExclamationEqualsEqualsToken: "ne",
+			ast.KindAmpersandAmpersandToken: "and", ast.KindBarBarToken: "or",
 		}[b.OperatorToken.Kind]
 		if x.Op == "" || b.Type != nil || hasModifiers(n) {
-			return nil, e.fail(n, "unsupported operator: scalar/2 accepts arithmetic, ordered number comparisons and same-kind strict equality; no coercive equality, logical operators or assignment")
+			return nil, e.fail(n, "unsupported operator: scalar/3 accepts arithmetic, number comparisons, same-kind strict equality and boolean && / ||; no coercive equality, bitwise operators or assignment")
 		}
 		args = []*ast.Node{b.Left, b.Right}
 	case ast.KindPrefixUnaryExpression:
@@ -346,6 +347,9 @@ func (e *extractor) expr(n *ast.Node, env map[*ast.Symbol]string, depth int) (*f
 			return nil, err
 		}
 		x.Args = append(x.Args, value)
+	}
+	if (x.Op == "and" || x.Op == "or") && (x.Type != "boolean" || len(x.Args) != 2 || x.Args[0].Type != "boolean" || x.Args[1].Type != "boolean") {
+		return nil, e.fail(n, "short-circuit operators require two boolean operands; implicit truthiness is not supported")
 	}
 	return x, nil
 }

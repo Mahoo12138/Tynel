@@ -1,10 +1,10 @@
 {
   "schemaVersion": 3,
-  "tag": "stage/04-control-flow",
-  "parentTag": "stage/03-ts-native",
-  "chapter": 4,
-  "note": "docs/notes/04-control-flow.md",
-  "scope": "Single-file number/boolean, comparisons, lexical blocks and if/else with checked returns; no implicit truthiness, short-circuit operators, mutation, loops or modules",
+  "tag": "stage/05-short-circuit",
+  "parentTag": "stage/04-control-flow",
+  "chapter": 5,
+  "note": "docs/notes/05-short-circuit.md",
+  "scope": "Single-file number/boolean with boolean && / ||, lazy RHS/result binding, comparisons and if/else; no implicit truthiness, nullish/ternary operators, mutation, loops or modules",
   "validation": {
     "script": "scripts/replay.ps1",
     "frontend": true,
@@ -14,6 +14,8 @@
     "dist/add.exe": "42\n",
     "gcProbe": "42\n7\n43\n",
     "dist/ts-add.exe": "42\n",
-    "dist/branches.exe": "42\n0\nfalse\ntrue\n"
+    "dist/branches.exe": "42\n0\nfalse\ntrue\n",
+    "dist/short-circuit.exe": "1\nfalse\n1\n2\ntrue\n3\ntrue\n3\n4\nfalse\n",
+    "dist/short-circuit-order.exe": "1\ntrue\n1\n3\nfalse\n"
   }
 }

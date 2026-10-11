@@ -4,8 +4,8 @@ package frontend
 
 import "fmt"
 
-const Version = 2
-const Profile = "tynel.scalar/2"
+const Version = 3
+const Profile = "tynel.scalar/3"
 
 type Span struct {
 	File      string `json:"file"`

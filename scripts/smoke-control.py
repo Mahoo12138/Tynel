@@ -58,7 +58,7 @@ def main() -> None:
         if native.stderr or oracle.stderr or native.stdout != expected or oracle.stdout != expected:
             raise AssertionError(f'{name}: native={native.stdout!r}, Node={oracle.stdout!r}, expected={expected!r}')
         metadata = json.loads(pathlib.Path(str(binary)+'.tynel.json').read_text(encoding='utf-8-sig'))
-        if metadata['profile'] != 'tynel.scalar/2' or metadata['irVersion'] != 3 or metadata['sourceSHA256'] != scalar.digest(source) or metadata['binarySHA256'] != scalar.digest(binary):
+        if metadata['profile'] != 'tynel.scalar/3' or metadata['irVersion'] != 4 or metadata['sourceSHA256'] != scalar.digest(source) or metadata['binarySHA256'] != scalar.digest(binary):
             raise AssertionError('source, profile or binary identity mismatch')
         if metadata['nirSHA256'] != scalar.digest(ROOT/metadata['nir']):
             raise AssertionError('NIR identity mismatch')
@@ -68,7 +68,7 @@ def main() -> None:
     failures = [
         ('numeric-condition','if(1)console.log(42);','TY1201'),
         ('numeric-not','console.log(!0);','TY1202'),
-        ('unimplemented-and','function f(a:boolean,b:boolean):boolean{return a&&b;}console.log(f(true,false));','TY1201'),
+        ('unimplemented-ternary','function f(a:boolean):boolean{return a?true:false;}console.log(f(true));','TY1201'),
         ('unimplemented-equality','function f(a:number,b:number):boolean{return a==b;}console.log(f(1,2));','TY1201'),
         ('unused-false-branch','if(false){console.log(1%2);}console.log(42);','TY1201'),
         ('wrong-return','function f():boolean{return 1;}','TS2322'),
@@ -118,7 +118,7 @@ def main() -> None:
     if 'examples/native/branches.ts' not in asm.stdout or 'RET' not in asm.stdout:
         raise AssertionError('branch function source/return missing')
     (WORK/'branches.asm.txt').write_text(asm.stdout,encoding='utf8')
-    record={'schemaVersion':1,'profile':'tynel.scalar/2','irVersion':3,'target':'windows/amd64','positivePrograms':results,'negativeBuilds':len(failures),'compilerRejections':2,'nirReplay':'passed','finalOutput':'dist/branches.exe','stdout':EXPECTED,'nodeVersion':scalar.checked(['node','--version']).stdout.strip()}
+    record={'schemaVersion':1,'profile':'tynel.scalar/3','irVersion':4,'target':'windows/amd64','positivePrograms':results,'negativeBuilds':len(failures),'compilerRejections':2,'nirReplay':'passed','finalOutput':'dist/branches.exe','stdout':EXPECTED,'nodeVersion':scalar.checked(['node','--version']).stdout.strip()}
     (WORK/'result.json').write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding='utf8')
     print(f'Control smoke passed: {len(cases)} programs, {len(failures)} rejected builds, 2 compiler rejections and replay.',flush=True)
 

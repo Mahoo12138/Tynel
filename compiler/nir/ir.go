@@ -1,8 +1,8 @@
 // Package nir defines Tynel's versioned, backend-independent research IR.
 package nir
 
-// Version 3 adds booleans and scoped, structured if/block statements.
-const Version = 3
+// Version 4 adds scoped, value-producing short_and/short_or statements.
+const Version = 4
 const ProbeGCFeature = "probe.gc/1"
 const Semantics = "tynel.shared-core/0.1"
 
@@ -57,6 +57,10 @@ type Expr struct {
 	Loc  Span    `json:"loc"`
 }
 
+// short_and / short_or bind Name to a boolean result. Condition is the left
+// operand (evaluated once). Only when needed, Body computes RHS temporaries,
+// then Value supplies the right result. Body locals do not escape. Name becomes
+// visible after the whole statement, never inside its own initializer.
 type Stmt struct {
 	Name      string `json:"name,omitempty"`
 	Target    *Expr  `json:"target,omitempty"`

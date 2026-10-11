@@ -24,21 +24,28 @@ func checkBody(body []Stmt, values map[string]binding, funcs map[string]*Functio
 		if err := validSpan(s.Loc); err != nil {
 			return false, err
 		}
-		if s.Op != "let" && s.Name != "" {
+		short := isShortCircuit(s.Op)
+		if s.Op != "let" && !short && s.Name != "" {
 			return false, fail(s.Loc, "extraneous statement binding")
 		}
 		paired := s.Op == "probe_store_value" || s.Op == "probe_store_next" || s.Op == "probe_assert_same"
 		if !paired && s.Target != nil {
 			return false, fail(s.Loc, "extraneous statement target")
 		}
-		if s.Op != "if" && (s.Condition != nil || s.Then != nil || s.Else != nil) {
+		if s.Op != "if" && (s.Then != nil || s.Else != nil || !short && s.Condition != nil) {
 			return false, fail(s.Loc, "extraneous branch fields")
 		}
-		if s.Op != "block" && s.Body != nil {
+		if s.Op != "block" && !short && s.Body != nil {
 			return false, fail(s.Loc, "extraneous block body")
 		}
 		if strings.HasPrefix(s.Op, "probe_") && !probe {
 			return false, fail(s.Loc, "%s requires feature %s", s.Op, ProbeGCFeature)
+		}
+		if short {
+			if err := checkShortCircuit(s, values, funcs, probe, depth, count); err != nil {
+				return false, err
+			}
+			continue
 		}
 		if s.Op == "if" || s.Op == "block" {
 			if s.Value != nil {

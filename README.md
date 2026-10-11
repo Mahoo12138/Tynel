@@ -6,13 +6,13 @@
 
 ## 当前状态
 
-当前编译路径是 **受限 TypeScript → 自有结构化事实 → NIR v3 → Go fork → 原生程序**。入口是 `scripts/compile-ts.ps1`，支持 number/boolean 函数、const、算术、比较、布尔取反、if/else、词法块和直接调用，以及单参数标量输出。条件只接受 boolean，严格相等只接受同一种标量；所有分支和返回路径都进行检查。尚不支持隐式 truthiness、&&/||、三元表达式、循环、赋值、模块、泛型或通用对象；主 `tynel build` 尚未接线。固定 `probe.gc/1` GC/ABI 实验保留。当前只是可验证子集，不能视为全部里程碑退出。
+当前编译路径是 **受限 TypeScript → 自有结构化事实 → NIR v4 → Go fork → 原生程序**。入口是 `scripts/compile-ts.ps1`，支持 number/boolean 函数、const、算术、比较、布尔取反、if/else、词法块、直接调用，以及 boolean `&&` / `||`。短路运算只执行需要的一侧，并保留结果与调用顺序。条件和逻辑操作数只接受 boolean，严格相等只接受同一种标量；所有分支和返回路径都进行检查。尚不支持隐式 truthiness、`??`、三元表达式、循环、赋值、模块、泛型或通用对象；主 `tynel build` 尚未接线。固定 `probe.gc/1` GC/ABI 实验保留。
 
 根目录 [SPEC.md](SPEC.md) 是整个项目的技术规格。架构、语义和验收以它为准；[开发记录](docs/progress.md) 记录实际实现和验证，[架构说明](docs/architecture.md)、[路线图](docs/roadmap.md) 是摘要，不替代规格。历史学习笔记以各篇注明的提交为基线。
 
-学习路线：[01 把一份加法描述编译成 exe](docs/notes/01-from-ir-to-native.md) → [02 查出 answer 的类型](docs/notes/02-tsgo-facade-and-type-facts.md) → [03 让 TypeScript 接替手写 IR](docs/notes/03-typescript-to-native.md) → [04 只执行被选中的分支](docs/notes/04-control-flow.md)。每篇包含问题、实现思路和运行实例，头部的 `experiment_tag` 对应其代码版本。
+学习路线：[01 把一份加法描述编译成 exe](docs/notes/01-from-ir-to-native.md) → [02 查出 answer 的类型](docs/notes/02-tsgo-facade-and-type-facts.md) → [03 让 TypeScript 接替手写 IR](docs/notes/03-typescript-to-native.md) → [04 只执行被选中的分支](docs/notes/04-control-flow.md) → [05 让右边的函数先等一等](docs/notes/05-short-circuit.md)。每篇包含问题、实现思路和运行实例，头部的 `experiment_tag` 对应其代码版本。
 
-术语见 [概念查询表](docs/reference/concepts.md)，环境与检出命令见 [实验指南](docs/reproducing.md)。四篇笔记与四个阶段一一对应：IR → 类型查询 → 源码编译 → 条件控制流。固定对象 GC/ABI 是第二阶段的基础验证，参考表不另设标签。
+术语见 [概念查询表](docs/reference/concepts.md)，环境与检出命令见 [实验指南](docs/reproducing.md)。五篇笔记与五个阶段一一对应：IR → 类型查询 → 源码编译 → 条件控制流 → 短路表达式。固定对象 GC/ABI 是第二阶段的基础验证，参考表不另设标签。
 
 ## 从 TypeScript 构建原生示例
 
@@ -34,7 +34,18 @@ pwsh -NoProfile -File scripts/compile-ts.ps1 -InputTS examples/native/branches.t
 .\dist\branches.exe
 ```
 
-输出为 `42`、`0`、`false`、`true` 四行。`-WithFrontend` 回归同时运行数值与分支差分。NIR v3 和 facts v2 / `tynel.scalar/2` 会拒绝旧格式；旧文章通过其自己的代码版本复现。范围见 [ADR-016](docs/adr/016-boolean-control-flow.md)，实际结果见 [阶段验证](docs/replay-validation.md)。
+输出为 `42`、`0`、`false`、`true` 四行。分支设计见 [ADR-016](docs/adr/016-boolean-control-flow.md)。
+
+短路与括号示例：
+
+```powershell
+pwsh -NoProfile -File scripts/compile-ts.ps1 -InputTS examples/native/short-circuit.ts -Output dist/short-circuit.exe
+.\dist\short-circuit.exe
+pwsh -NoProfile -File scripts/compile-ts.ps1 -InputTS examples/native/short-circuit-order.ts -Output dist/short-circuit-order.exe
+.\dist\short-circuit-order.exe
+```
+
+各行编号对应哪些调用发生，见 [笔记 05](docs/notes/05-short-circuit.md)。当前使用 NIR v4 和 facts v3 / `tynel.scalar/3`，旧格式明确拒绝；旧文章通过自己的标签复现。节点规则见 [ADR-017](docs/adr/017-boolean-short-circuit.md)，实际结果见 [阶段验证](docs/replay-validation.md)。
 
 ## 开发环境
 
@@ -101,7 +112,7 @@ pwsh -NoProfile -File scripts/test.ps1 -WithFrontend
 
 合法输入返回 JSON 且退出 0；类型错误退出 1；使用错误退出 2。探针使用固定逻辑文件名 `/tynel/probe.ts`、单文件内存快照和上游 ES5 声明；`-offset` 接受零起始 UTF-8 字节偏移。默认查询模式不执行 TS、不生成 NIR，也不提供 npm/Node 运行环境；其类型显示字符串只供研究。新增 `-emit facts` / `-emit nir` 模式通过独立的数值类型/声明身份投影生成 NIR，不解析显示字符串。来源、范围和验证见 [T01/T04 记录](docs/progress-t01-t04.md) 与 [ADR-014](docs/adr/014-tsgo-facade-baseline.md)。
 
-默认 `scripts/test.ps1` 仍只要求后端环境；`-WithFrontend` 明确增加源码锁检查、前端外部消费测试、内部包访问负向验证，以及原有 9 组数值对照/3 组错误构建，新增 13 组分支与布尔对照/8 组错误构建、保存 NIR 回放和 2 组编译器直接拒绝测试。缺源码时会失败，不会悄悄跳过。前端源码、依赖和编译器产物位于 Git 忽略目录；本项目 facade、host 和依赖校验文件正常纳入版本管理范围。
+默认 `scripts/test.ps1` 只要求后端环境；`-WithFrontend` 增加源码锁、前端接口与内部包边界测试，再运行数值、分支和短路的原生/Node 对照、NIR 回放与错误构建检查。完整数量和实际结果写在阶段验证记录中。前端源码、依赖和编译器产物位于 Git 忽略目录；本项目 facade、host 和依赖校验文件纳入版本管理。
 
 ## 布局
 

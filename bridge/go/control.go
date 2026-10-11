@@ -16,6 +16,9 @@ func (b *builder) statements(stmts []nir.Stmt, g *ir.Func, env map[string]*ir.Na
 		pos := b.pos(s.Loc)
 		var node ir.Node
 		switch s.Op {
+		case "short_and", "short_or":
+			out = append(out, b.shortCircuit(s, g, env)...)
+			continue
 		case "if":
 			condition := b.expr(s.Condition, env)
 			yes := b.statements(s.Then, g, maps.Clone(env))

@@ -125,6 +125,9 @@ func (l *lowerer) expr(e *Expression, g *nir.Function, env map[string]localBindi
 	if e.Op != "ref" && e.Op != "call" && e.Ref != "" {
 		return nil, l.fail(e.Loc, "extraneous declaration reference")
 	}
+	if e.Op == "and" || e.Op == "or" {
+		return l.shortCircuit(e, g, env, depth)
+	}
 	x := &nir.Expr{Op: e.Op, Type: nir.Type(e.Type), Loc: l.span(e.Loc)}
 	want := "number"
 	var operands []string

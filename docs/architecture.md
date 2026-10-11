@@ -24,9 +24,13 @@ Tynel 是学习型 TypeScript-to-native 编译器。长期主线是 tsgo -> Nati
 
 ## 布尔与结构化控制流
 
-NIR v3 / facts v2 支持 number、boolean 及带独立 Then/Else 的 if。条件只求值一次，分支中的临时值和调用不提升到外层；块与分支复制编译期绑定表，局部声明不向外泄露。sequence 同时计算结构上的全路径返回信息。Go bridge 使用 TBOOL、原始数值比较和 `ir.NewIfStmt`，由 Go 继续生成 CFG/SSA。未引入短路运算、可变绑定或自己的 SSA。
+NIR v4 / facts v3 支持 number、boolean 及带独立 Then/Else 的 if。条件只求值一次，分支中的临时值和调用不提升到外层；块与分支复制编译期绑定表，局部声明不向外泄露。sequence 同时计算结构上的全路径返回信息。Go bridge 使用 TBOOL、原始数值比较和 `ir.NewIfStmt`，由 Go 继续生成 CFG/SSA。源码可变绑定与自有 SSA 尚未引入。
 
 详见 [ADR-016](adr/016-boolean-control-flow.md)；主编译入口仍为脚本，旧协议明确拒绝，历史文章保持其版本范围。
+
+## 短路表达式
+
+facts 的 `and` / `or` 经独立类型检查生成 NIR `short_and` / `short_or`。它们保存左侧、独立的右侧准备列表和右侧结果，并对外绑定一个 boolean 值。右侧临时值不外泄；即使左侧恒定，右侧仍进行能力检查。Go bridge 用内部 bool 临时变量及高层 if 表示选择，由 Go 后端完成后续结果合并。[ADR-017](adr/017-boolean-short-circuit.md) 定义字段、作用域和版本规则。
 
 ## 学自 scriptc，但不复制它的 runtime
 
@@ -42,4 +46,4 @@ NIR v3 / facts v2 支持 number、boolean 及带独立 Then/Else 的 if。条件
 
 ## 下一阶段
 
-IR->原生、输入变更使缓存失效、非法 IR 被编译器拒绝及特殊浮点 smoke 已实际通过，证据见 [开发记录](progress.md)。使用 `scripts/test.ps1` 可重跑当前完整原型回归。固定对象的分配/GC 与辅助 ABI 锚点原型已有独立回归。上游 commit 与独立 tsgo facade 已形成前置探针；数值 TypeFacts/约束与 TS→NIR 已形成受限连接；布尔比较与结构化分支现已接入；下一步研究短路表达式与值的条件选择，并继续补 Go SDK 全树来源、通用前端事实和未覆盖的运行时契约。包括前端的验证使用 `scripts/test.ps1 -WithFrontend`；具体结果见 [本轮进展](progress-t14-t16.md)。不要用正则表达式解析 TS，也不要用源码转译替代接缝。
+IR->原生、输入变更使缓存失效、非法 IR 被编译器拒绝及特殊浮点 smoke 已实际通过，证据见 [开发记录](progress.md)。使用 `scripts/test.ps1` 可重跑当前完整原型回归。固定对象的分配/GC 与辅助 ABI 锚点原型已有独立回归。上游 commit 与独立 tsgo facade 已形成前置探针；数值 TypeFacts/约束与 TS→NIR 已形成受限连接；布尔比较与结构化分支现已接入；boolean 短路已接入；下一步研究三元表达式的值选择，并继续补 Go SDK 全树来源、通用前端事实和未覆盖的运行时契约。包括前端的验证使用 `scripts/test.ps1 -WithFrontend`；具体结果见 [本轮进展](progress-t14-t16.md)。不要用正则表达式解析 TS，也不要用源码转译替代接缝。

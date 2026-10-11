@@ -28,6 +28,13 @@
       "chapter": 4,
       "note": "docs/notes/04-control-flow.md",
       "frontend": true
+    },
+    {
+      "tag": "stage/05-short-circuit",
+      "parentTag": "stage/04-control-flow",
+      "chapter": 5,
+      "note": "docs/notes/05-short-circuit.md",
+      "frontend": true
     }
   ]
 }

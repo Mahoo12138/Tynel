@@ -120,7 +120,7 @@ def main() -> None:
     if 'ADDSD' not in asm.stdout or 'examples/native/add.ts' not in asm.stdout:
         raise AssertionError('Missing generated addition or real TS source location')
     (WORK / 'add.asm.txt').write_text(asm.stdout, encoding='utf-8')
-    record = {'schemaVersion': 1, 'profile': 'tynel.scalar/2', 'target': 'windows/amd64', 'positivePrograms': results, 'replay': 'passed', 'negativeBuilds': 3, 'finalOutput': 'dist/ts-add.exe', 'nodeVersion': checked(['node','--version']).stdout.strip(), 'frontendSHA256': digest(FRONT)}
+    record = {'schemaVersion': 1, 'profile': 'tynel.scalar/3', 'target': 'windows/amd64', 'positivePrograms': results, 'replay': 'passed', 'negativeBuilds': 3, 'finalOutput': 'dist/ts-add.exe', 'nodeVersion': checked(['node','--version']).stdout.strip(), 'frontendSHA256': digest(FRONT)}
     (WORK / 'result.json').write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
     print('TypeScript native smoke passed: 9 positive programs, replay, 3 negative builds, final source example.', flush=True)
 

@@ -12,6 +12,7 @@
 |---|---|---|
 | commit / tag / worktree | 已提交快照、它的稳定名字、独立实验目录 | [版本与复现](#versions) |
 | boolean / truthiness / CFG / 词法作用域 | 条件值、条件转换、可能执行的路径、名称可见范围 | [条件与控制流](#control-flow) |
+| 短路求值 / RHS / 结果绑定 | 按条件求右值、右操作数及最终结果的名字 | [短路表达式](#short-circuit) |
 | probe / smoke / fixture / assertion | 小实验、关键路径检查、测试输入、结果断言 | [实验术语](#probes) |
 | GC / root / heap / alias | 垃圾回收、追踪起点、堆、同对象的多个引用 | [内存与对象](#gc) |
 | 栈帧 / 写屏障 | 调用的工作空间、指针写入与 GC 的配合 | [栈与屏障](#stack-barrier) |
@@ -30,6 +31,13 @@ boolean 是 true/false 两种值的类型；truthiness 是其他类型的值按�
 CFG（Control Flow Graph，控制流图）记录执行可以从哪个位置转向哪个位置。基本块描述连续的低层执行片段；源码 `{ ... }` 的词法块限制名称可见范围，二者不一一对应。分支内变量只在该范围可见，与运行时数据是否复制没有必然关系。
 
 “所有路径返回”是在问每条能走到的函数出口是否都有结果，不是计数 return。当前结构检查不利用常量条件排除分支。具体问题、实例与实现见 [笔记 04](../notes/04-control-flow.md) 和 [ADR-016](../adr/016-boolean-control-flow.md)。这张表随阶段保存，不另建标签。
+
+<a id="short-circuit"></a>
+## 短路表达式
+
+短路求值根据左侧的值决定是否继续求右侧。RHS 是 right-hand side，即右侧操作数；LHS 是左侧。Tynel 在 `stage/05-short-circuit` 支持两个 boolean 操作数的 `&&` 和 `||`，并将右侧的调用、运算保存在独立准备列表中。
+
+结果绑定给整个表达式的值起一个后续可引用的名字。NIR 的 `short_and` / `short_or` 在左侧已经决定结果时返回左值，其他情况执行右侧准备步骤并采用右值。右侧临时名字不进入外层。实际实验见 [笔记 05](../notes/05-short-circuit.md)，结构约定见 [ADR-017](../adr/017-boolean-short-circuit.md)。
 
 <a id="versions"></a>
 ## 版本与复现：commit、tag、worktree
